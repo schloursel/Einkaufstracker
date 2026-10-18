@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wochenplaner Lidl</title>
+<style>
+:root{--bg:#f6f7f4;--card:#fff;--text:#1d2a1f;--muted:#6b776d;--accent:#2f7d4f;--accent-t:#fff;--line:#dfe4dc;--warn:#b45309;--ok:#2f7d4f}
+@media (prefers-color-scheme:dark){:root{--bg:#141815;--card:#1d231e;--text:#e8efe9;--muted:#98a79b;--accent:#5bb982;--accent-t:#0e1a12;--line:#2d362f;--warn:#f0a050;--ok:#5bb982}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,sans-serif}
+header{padding:16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+h1{font-size:1.2rem;margin:0}
+nav{display:flex;gap:6px;padding:0 16px 8px;overflow-x:auto}
+nav button{flex:none}
+main{padding:0 16px 40px;max-width:900px;margin:0 auto}
+button,input,select{font:inherit;color:inherit}
+button{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+button.on,button.primary{background:var(--accent);color:var(--accent-t);border-color:var(--accent)}
+button.small{padding:3px 8px;font-size:.85rem}
+input,select{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px 8px;width:100%}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.muted{color:var(--muted);font-size:.9rem}
+.warn{color:var(--warn)}
+.ok{color:var(--ok)}
+.done{opacity:.55;text-decoration:line-through}
+h2{font-size:1.05rem;margin:18px 0 4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+.stat b{display:block;font-size:1.3rem}
+table{width:100%;border-collapse:collapse}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+td.n{width:90px}
+@media (max-width:480px){td.n{width:70px}}
+</style>
+</head>
+<body>
+<header><h1>🥗 Wochenplaner Lidl</h1><span class="muted" id="weeklabel"></span></header>
+<nav id="nav"></nav>
+<main id="view"></main>
+<script src="data.js"></script>
+<script src="offers.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

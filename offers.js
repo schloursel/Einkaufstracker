@@ -1,0 +1,37 @@
+// Automatisch erzeugt von tools/update-offers.ps1 - nicht von Hand ändern.
+window.OFFERS = {
+  week: '2026-10-19',
+  fetched: '2026-10-18',
+  source: "kaufda.de (8), prospektangebote.de (21) · Lebensmittel-Auswahl, evtl. unvollständig",
+  items: [
+    { name: "Alesto mandeln", price: 2.99, info: "prospektangebote.de, 2 Monate" },
+    { name: "Belbake kakao zum backen", price: 3.29, info: "prospektangebote.de, 2 Monate" },
+    { name: "Belbake vanillin-zucker", price: 0.39, info: "prospektangebote.de, 2 Monate" },
+    { name: "Bellarom caffè rosso", price: 9.99, info: "prospektangebote.de, 2 Monate" },
+    { name: "BELLAROM Espresso Cremoso ganze Bohnen", price: 11.49, info: "prospektangebote.de, 2 Monate" },
+    { name: "Bio Cocktailstrauchtomaten", price: 2.99, info: "kaufda.de, Prospekt der Woche" },
+    { name: "Bioland apfel direktsaft", price: 1.55, info: "prospektangebote.de, 2 Monate" },
+    { name: "Birnen", price: 1.79, info: "kaufda.de, Prospekt der Woche" },
+    { name: "Deutsche Möhren mit Grün", price: 1.79, info: "kaufda.de, Prospekt der Woche" },
+    { name: "FIN CARRÉ Tafelschokolade Dunkle Ganze Mandel", price: 2.19, info: "prospektangebote.de, 2 Monate" },
+    { name: "FIN CARRÉ Tafelschokolade Edel-Kaffee Sahne", price: 2.19, info: "prospektangebote.de, 2 Monate" },
+    { name: "Golden sun jasmin reis", price: 1.99, info: "prospektangebote.de, 2 Monate" },
+    { name: "Grafschafter brötchen", price: 1.79, info: "prospektangebote.de, 2 Monate" },
+    { name: "Helle, kernlose Trauben", price: 1.59, info: "kaufda.de, Prospekt der Woche" },
+    { name: "Mandarinen/Satsumas", price: 3.49, info: "kaufda.de, Prospekt der Woche" },
+    { name: "MILBONA Fettarmer Kefir", price: 0.79, info: "prospektangebote.de, 2 Monate" },
+    { name: "Milbona frische fettarme milch", price: 0.85, info: "prospektangebote.de, 2 Monate" },
+    { name: "Milbona frische vollmilch/ weidemilch", price: 0.95, info: "prospektangebote.de, 2 Monate" },
+    { name: "MILBONA Joghurt", price: 0.79, info: "prospektangebote.de, 2 Monate" },
+    { name: "MILBONA Joghurt, mild", price: 0.89, info: "prospektangebote.de, 2 Monate" },
+    { name: "MILBONA Käse-Snack", price: 2.69, info: "prospektangebote.de, 2 Monate" },
+    { name: "Milbona kondensmilch", price: 0.89, info: "prospektangebote.de, 2 Monate" },
+    { name: "MILBONA Laktosefreie H-Vollmilch", price: 1.15, info: "prospektangebote.de, 2 Monate" },
+    { name: "Milbona mascarpone", price: 1.79, info: "prospektangebote.de, 2 Monate" },
+    { name: "Milbona mozzarella", price: 1.79, info: "prospektangebote.de, 2 Monate" },
+    { name: "Rote Honigpomelo", price: 2.79, info: "kaufda.de, Prospekt der Woche" },
+    { name: "Speisekartoffeln, festkochend", price: 2.19, info: "kaufda.de, Prospekt der Woche" },
+    { name: "VEMONDO Vegane Schokolade", price: 0.65, info: "prospektangebote.de, 2 Monate" },
+    { name: "Zwiebelzopf", price: 3.99, info: "kaufda.de, Prospekt der Woche" }
+  ]
+};
