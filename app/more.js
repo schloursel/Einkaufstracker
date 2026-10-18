@@ -58,18 +58,24 @@
   A.prodAsIng = () => { ET.sheet.close(); setTimeout(() => openForm(null, 'p:' + curProd), 270); };
 
   // ---------- Rezepte ----------
+  let RL = 'all', RQ = '';
+  const RTYPES = [['all', 'Alle'], ['meal', 'Gerichte'], ['snack', 'Snacks'], ['einfach', 'einfach'], ['dip', 'Dips'], ['eintopf', 'Ein-Topf']];
   ET.views['more/recipes'] = function () {
-    const rows = ET.allRecipes().map(r => ({ r, fl: ET.recipeFlags(r), n: ET.portionN(r) }));
-    return { title: 'Gerichte', html: `<div class="row" style="margin:6px 0"><button class="primary" data-act="recNew">+ Neues Rezept</button></div><input id="rq" type="search" placeholder="Rezept suchen" style="margin-bottom:6px"><div id="rlist">${recList('')}</div>` };
+    return { title: 'Gerichte', html: `<div class="row" style="margin:6px 0"><button class="primary" data-act="recNew">+ Neues Rezept</button><span class="muted" id="rcount"></span></div>
+      <input id="rq" type="search" placeholder="Rezept suchen" value="${esc(RQ)}" style="margin-bottom:6px">
+      <div class="chips">${RTYPES.map(([k, l]) => ET.ui.chip(l, RL === k, 'rlType', `data-t="${k}"`)).join('')}</div><div id="rlist">${recList(RQ)}</div>` };
   };
   function recList(q) {
     const t = ET.normS(q);
-    return '<div class="card" style="padding:4px 14px">' + ET.allRecipes().filter(r => !t || ET.normS(r.name).includes(t)).map(r => {
+    const rs = ET.allRecipes().filter(r => (!t || ET.normS(r.name).includes(t)) &&
+      (RL === 'all' || (RL === 'snack' ? r.type === 'snack' : RL === 'meal' ? r.type !== 'snack' : (r.tags || []).includes(RL))));
+    return `<div class="muted">${rs.length} Rezepte</div><div class="card" style="padding:4px 14px">` + rs.map(r => {
       const fl = ET.recipeFlags(r), n = ET.portionN(r);
-      return `<div class="list-link" data-act="recView" data-id="${r.id}"><div><b>${esc(r.name)}</b>${r.custom ? ' <span class="badge">eigenes</span>' : ''}<div class="muted">${r.min} Min · ${Math.round(n[0])} kcal · ${Math.round(n[1])} g Eiweiß${fl.blocked ? ' · <span class="warn">Gerät fehlt</span>' : ''}${fl.warn ? ' · <span class="warn">⚠ ' + fl.aHit.concat(fl.dHit).map(esc).join(', ') + '</span>' : ''}</div></div><span class="muted">›</span></div>`;
+      return `<div class="list-link" data-act="recView" data-id="${r.id}"><div><b>${esc(r.name)}</b>${r.custom ? ' <span class="badge">eigenes</span>' : ''}${r.type === 'snack' ? ' <span class="badge">Snack</span>' : ''}<div class="muted">${r.min} Min · ${Math.round(n[0])} kcal · ${Math.round(n[1])} g Eiweiß${fl.blocked ? ' · <span class="warn">Gerät fehlt</span>' : ''}${fl.warn ? ' · <span class="warn">⚠ ' + fl.aHit.concat(fl.dHit).map(esc).join(', ') + '</span>' : ''}</div></div><span class="muted">›</span></div>`;
     }).join('') + '</div>';
   }
-  ET.onInput(e => { if (e.target.id === 'rq') document.getElementById('rlist').innerHTML = recList(e.target.value); });
+  ET.onInput(e => { if (e.target.id === 'rq') { RQ = e.target.value; document.getElementById('rlist').innerHTML = recList(RQ); } });
+  A.rlType = t => { RL = t.dataset.t; ET.render(); };
   A.recView = t => ET.openRecipe(t.dataset.id, null);
   A.recNew = () => openForm(null);
   A.recEdit = () => { const id = ET._recId; ET.sheet.close(); setTimeout(() => openForm(id), 270); };
@@ -83,7 +89,7 @@
   let RF = null;
   function openForm(id, addItem) {
     const src = id ? S.customRecipes.find(r => r.id === id) : null;
-    RF = { id: id || null, name: src ? src.name : '', min: src ? src.min : 20, steps: src ? src.steps : '', tools: src ? src.tools.slice() : ['herd'], allergens: src ? (src.allergens || []).slice() : [],
+    RF = { id: id || null, type: src && src.type === 'snack' ? 'snack' : 'meal', tags: src ? (src.tags || []).slice() : [], name: src ? src.name : '', min: src ? src.min : 20, steps: src ? src.steps : '', tools: src ? src.tools.slice() : ['herd'], allergens: src ? (src.allergens || []).slice() : [],
       ing: src ? Object.assign({}, src.ing) : {}, q: '', own: null };
     if (addItem) RF.ing[addItem] = defaultAmt(addItem);
     ET.sheet.open(id ? 'Rezept bearbeiten' : 'Neues Rezept', formHtml);
@@ -98,12 +104,13 @@
     return all.length ? all.map(x => `<div class="shoprow" data-act="rfAdd" data-id="${esc(x[0])}"><div class="t">${esc(x[1])}<div class="muted">${esc(x[2])}</div></div><span class="muted">＋</span></div>`).join('') : '<div class="muted">Nichts gefunden. Unten eine eigene Zutat anlegen.</div>';
   }
   function formHtml() {
-    const ni = ET.ingNutri(RF.ing), por = ET.addN(ET.scaleN(ni.n, 0.5), ET.OIL);
+    const ni = ET.ingNutri(RF.ing), por = formPortion();
     let h = `<label class="field">Name</label><input data-f="rf-name" value="${esc(RF.name)}" placeholder="z. B. Linsen-Pfanne">
-      <div class="grid2"><div><label class="field">Kochzeit (Min)</label><input data-f="rf-min" type="number" min="1" value="${RF.min}"></div><div><label class="field">Portionen</label><input value="2 (Mittag + Abend)" disabled></div></div>
+      <div class="chips" style="margin-top:10px">${ET.ui.chip('Gericht (2 Portionen)', RF.type === 'meal', 'rfType', 'data-k="meal"')}${ET.ui.chip('Snack (1 Portion)', RF.type === 'snack', 'rfType', 'data-k="snack"')}${ET.ui.chip('einfach', RF.tags.includes('einfach'), 'rfTag', 'data-k="einfach"')}${ET.ui.chip('Dip', RF.tags.includes('dip'), 'rfTag', 'data-k="dip"')}${ET.ui.chip('Ein-Topf', RF.tags.includes('eintopf'), 'rfTag', 'data-k="eintopf"')}</div>
+      <div class="grid2"><div><label class="field">Kochzeit (Min)</label><input data-f="rf-min" type="number" min="1" value="${RF.min}"></div></div>
       <label class="field">Benötigte Geräte</label><div class="chips">${TOOLS.map(([k, l]) => ET.ui.chip(l, RF.tools.includes(k), 'rfTool', `data-k="${k}"`)).join('')}</div>
       <label class="field">Enthält (Unverträglichkeiten)</label><div class="chips">${ALLERGENS.map(([k, l]) => ET.ui.chip(l, RF.allergens.includes(k), 'rfAl', `data-k="${k}"`)).join('')}</div>
-      <label class="field">Zutaten (Menge für 2 Portionen)</label>`;
+      <label class="field">Zutaten (Menge für ${RF.type === 'snack' ? '1 Portion' : '2 Portionen'})</label>`;
     const ids = Object.keys(RF.ing);
     h += ids.length ? '<div class="card" style="padding:4px 12px">' + ids.map(id => { const c = item(id); return `<div class="row nowrap" style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="t" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}${c.n ? '' : ' <span class="badge warn">ohne Nährwerte</span>'}</span><input data-f="rf-amt" data-id="${esc(id)}" type="number" min="0" step="any" value="${RF.ing[id]}" style="width:90px"><span class="muted" style="width:28px">${c.unit}</span><button class="small ghost" data-act="rfDel" data-id="${esc(id)}">✕</button></div>`; }).join('') + '</div>' : '<div class="muted">Noch keine Zutaten.</div>';
     h += `<input id="rfq" type="search" placeholder="Zutat suchen und antippen" value="${esc(RF.q)}" style="margin-top:8px"><div id="rfres">${formResults()}</div>
@@ -119,7 +126,10 @@
       <button class="primary block" data-act="rfSave">Speichern</button>`;
     return h;
   }
-  function refreshNut() { const el = document.getElementById('rfnut'); if (!el) return; const ni = ET.ingNutri(RF.ing); el.innerHTML = `<h3>Pro Portion</h3><div class="muted">${fmtN(ET.addN(ET.scaleN(ni.n, 0.5), ET.OIL))}</div>${ni.unknown.length ? '<div class="warn" style="font-size:.85rem">Nährwerte unvollständig</div>' : ''}`; }
+  const formPortion = () => ET.portionN({ ing: RF.ing, type: RF.type === 'snack' ? 'snack' : 'meal', serv: RF.type === 'snack' ? 1 : 2 });
+  function refreshNut() { const el = document.getElementById('rfnut'); if (!el) return; const ni = ET.ingNutri(RF.ing); el.innerHTML = `<h3>Pro Portion</h3><div class="muted">${fmtN(formPortion())}</div>${ni.unknown.length ? '<div class="warn" style="font-size:.85rem">Nährwerte unvollständig</div>' : ''}`; }
+  A.rfType = t => { RF.type = t.dataset.k; ET.sheet.refresh(); };
+  A.rfTag = t => { const k = t.dataset.k, a = RF.tags; a.includes(k) ? a.splice(a.indexOf(k), 1) : a.push(k); ET.sheet.refresh(); };
   ET.onInput(e => {
     if (!RF) return; const f = e.target.dataset.f, id = e.target.id;
     if (id === 'rfq') { RF.q = e.target.value; document.getElementById('rfres').innerHTML = formResults(); return; }
@@ -146,7 +156,8 @@
     const name = RF.name.trim(); if (!name) return alert('Bitte einen Namen eingeben.');
     const ing = {}; Object.entries(RF.ing).forEach(([k, v]) => { if (v > 0) ing[k] = v; });
     if (!Object.keys(ing).length) return alert('Bitte mindestens eine Zutat mit Menge hinzufügen.');
-    const r = { id: RF.id || ET.uid('u'), name, min: RF.min || 20, steps: RF.steps.trim(), ing, tools: RF.tools.length ? RF.tools : ['herd'], allergens: RF.allergens.slice(), group: 'eigen', custom: true };
+    const r = { id: RF.id || ET.uid('u'), name, min: RF.min || 20, steps: RF.steps.trim(), ing, tools: RF.tools.length ? RF.tools : ['herd'], allergens: RF.allergens.slice(), tags: RF.tags.slice(), group: RF.type === 'snack' ? 'snack' : 'eigen', custom: true };
+    if (RF.type === 'snack') { r.type = 'snack'; r.serv = 1; }
     const i = S.customRecipes.findIndex(x => x.id === r.id); if (i >= 0) S.customRecipes[i] = r; else S.customRecipes.push(r);
     ET.save(); ET.sheet.close(); ET.render();
   };
@@ -180,7 +191,7 @@
     const eaten = logs.flatMap(([, l]) => l.meals).map(id => ET.rec(id)).filter(Boolean), avgC = eaten.length ? eaten.reduce((s, r) => s + ET.recipeCostPerPortion(r), 0) / eaten.length : 0;
     const budget = S.settings.budget, maxH = Math.max(budget || 0, ...hist.map(h => h.total), 1);
     const byReason = {}; S.waste.forEach(w => { const k = w.reason || 'ohne Angabe'; byReason[k] = (byReason[k] || 0) + w.value; });
-    const sorted = ET.allRecipes().map(r => [r, ET.recipeCostPerPortion(r)]).sort((a, b) => a[1] - b[1]);
+    const sorted = ET.allRecipes().filter(r => r.type !== 'snack').map(r => [r, ET.recipeCostPerPortion(r)]).sort((a, b) => a[1] - b[1]);
     let html = `<div class="tiles"><div class="tile"><h3>Ausgaben gesamt</h3><b style="font-size:1.3rem">${eur(total)}</b></div><div class="tile"><h3>Ø pro Woche</h3><b style="font-size:1.3rem">${n ? eur(total / n) : '–'}</b></div>
       <div class="tile"><h3>Weggeworfen</h3><b style="font-size:1.3rem">${eur(waste)}</b></div><div class="tile"><h3>Ø Kosten / Portion</h3><b style="font-size:1.3rem">${eaten.length ? eur(avgC) : '–'}</b></div>
       <div class="tile"><h3>Ø Eiweiß / Tag</h3><b style="font-size:1.3rem">${nd ? Math.round(avgP) + ' g' : '–'}</b></div><div class="tile"><h3>Ø kcal / Tag</h3><b style="font-size:1.3rem">${nd ? Math.round(avgK) : '–'}</b></div></div>`;

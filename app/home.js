@@ -21,7 +21,7 @@
     const p = S.plan, d = p.days[i];
     const items = [p.shake[i]]; let planned = 1;
     if (d) {
-      ['L', 'D'].forEach(m => { if (ET.recipeAt(i, m)) { planned++; items.push(m === 'L' ? d.eL : d.eD); } });
+      ['L', 'D', 'S'].forEach(m => { if (ET.recipeAt(i, m)) { planned++; items.push(d[ET.FLAG_E[m]]); } });
       if (planned === 1 && i < 4) return 'empty';
     }
     return items.every(Boolean) ? 'full' : 'plan';
@@ -69,6 +69,7 @@
           : `<div class="mealrow" data-act="go" data-r="plan"><span class="check"></span><span class="t muted">${label}: noch leer<small>im Plan wählen</small></span></div>`);
       });
       else rows.push('<div class="muted" style="padding-top:6px">Danach bei den Eltern.</div>');
+      if (idx < 4 && d.s) { const r = ET.rec(d.s); rows.push(`<div class="mealrow"><span data-act="eat" data-i="${idx}" data-m="S">${U().check(d.eS)}</span><span class="t" data-act="openRecipeAt" data-i="${idx}" data-m="S">${esc(r.name)}<small>Snack · ${Math.round(ET.portionN(r)[0])} kcal</small></span></div>`); }
       html += `<div class="tile"><h3>${isToday ? 'Heute' : 'Nächster Plantag'} · ${ET.WEEKDAYS[idx]}</h3>${rows.join('')}</div>`;
     } else html += '<div class="tile"><h3>Heute</h3><div class="muted">–</div></div>';
 
@@ -105,7 +106,7 @@
 
   // ---------- Aktionen ----------
   const A = ET.acts;
-  A.eat = t => { const i = +t.dataset.i, m = t.dataset.m, d = S.plan.days[i], on = m === 'L' ? d.eL : d.eD; ET.setEaten(i, m, !on); ET.render(); };
+  A.eat = t => { const i = +t.dataset.i, m = t.dataset.m, d = S.plan.days[i], on = d[ET.FLAG_E[m]]; ET.setEaten(i, m, !on); ET.render(); };
   A.eatShake = t => { const i = +t.dataset.i; ET.setShake(i, !S.plan.shake[i]); ET.render(); };
   A.openDay = t => { ET.selDay = +t.dataset.i; ET.go('plan'); };
   A.pantryGo = () => ET.go('pantry');

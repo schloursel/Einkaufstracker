@@ -4,7 +4,8 @@ Statische Web-App ohne Backend und ohne Build: Wochenplan, Einkaufsliste und Vor
 
 ## Aufbau
 - `index.html` (Gerüst, Design), `app/` (Kern, UI, Home, Plan, Einkauf/Vorrat, Mehr, Start)
-- `data.js`: Katalog (30 Artikel), Rezepte, Shake, Nährwerte, Lagerorte, Geräte
+- `data.js`: Grundkatalog, erste 20 Rezepte, Shake, Nährwerte, Lagerorte, Geräte
+- `data-more.js`: weitere Katalogartikel (insgesamt ca. 80) und Rezepte (insgesamt 88: 73 Gerichte, 15 Snacks mit Tags einfach / Dip / Ein-Topf)
 - `offers.js`, `products.js`, `nutrition.js`: Daten, automatisch erzeugt (siehe unten)
 - `manifest.webmanifest`, `sw.js`, `icons/`: Installation als App und Offline-Betrieb
 

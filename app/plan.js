@@ -4,9 +4,10 @@
   const SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr'];
   const A = ET.acts;
   ET.selDay = null;
-  const slotLabel = (d, k) => (d.mode === 'split' ? (k === 'a' ? 'Mittag' : 'Abend') : 'Mittag & Abend');
-  const anyTouched = d => d.cA || d.cB || d.eL || d.eD;
-  const anyCooked = () => S.plan.days.some(anyTouched);
+  const slotLabel = (d, k) => (k === 's' ? 'Snack' : d.mode === 'split' ? (k === 'a' ? 'Mittag' : 'Abend') : 'Mittag & Abend');
+  const anyTouched = d => d.cA || d.cB || d.eL || d.eD;          // Umschalter/Auto nur ohne gekochte Hauptmahlzeiten
+  const anyCookedAll = d => anyTouched(d) || d.cS || d.eS;
+  const anyCooked = () => S.plan.days.some(anyCookedAll);
 
   // ---------- Plan-Ansicht ----------
   ET.views.plan = function () {
@@ -21,22 +22,22 @@
 
     const day = p.days[sel], sn = ET.shakeN();
     let dayN = sn.slice();
-    if (day) ['L', 'D'].forEach(m => { const r = ET.recipeAt(sel, m); if (r) dayN = ET.addN(dayN, ET.portionN(r)); });
+    if (day) ['L', 'D', 'S'].forEach(m => { const r = ET.recipeAt(sel, m); if (r) dayN = ET.addN(dayN, ET.portionN(r)); });
     html += `<div class="card"><div class="row"><b>${ET.WEEKDAYS[sel]}</b><span class="muted">Tag: ${Math.round(dayN[0])} kcal · ${Math.round(dayN[1])} g Eiweiß</span></div>
       <div class="mealrow" style="cursor:default"><span data-act="eatShake" data-i="${sel}">${ET.ui.check(p.shake[sel])}</span><span class="t">🥤 Frühstück: Shake<small>${fmtN(sn)}</small></span></div>`;
     if (day) {
       const touched = anyTouched(day), split = day.mode === 'split';
       html += `<div class="row" style="margin:8px 0 2px"><span class="muted">${split ? 'Mittag und Abend getrennt' : 'Einmal kochen, mittags mehr, abends dasselbe'}</span>${touched ? '' : `<button class="small" data-act="toggleMode" data-i="${sel}">${split ? 'einmal kochen' : 'getrennt kochen'}</button>`}</div>`;
-      html += slotHtml(sel, 'a') + (split ? slotHtml(sel, 'b') : '');
+      html += slotHtml(sel, 'a') + (split ? slotHtml(sel, 'b') : '') + slotHtml(sel, 's');
     } else html += '<div class="muted" style="margin-top:8px">Freitag: nur der Shake, danach bei den Eltern.</div>';
     html += '</div><p class="muted">Tipp: Gericht antippen für Details, gedrückt halten und ziehen zum Verschieben (auch auf einen anderen Tag oben).</p>';
     return { title: 'Plan', sub: 'ab ' + p.week.split('-').reverse().join('.'), html };
   };
 
   function slotHtml(i, k) {
-    const d = S.plan.days[i], id = d[k], flag = k === 'a' ? 'cA' : 'cB';
-    if (!id) return `<div class="slot empty" data-si="${i}" data-sk="${k}" data-act="choose" data-i="${i}" data-k="${k}">+ ${slotLabel(d, k)}: Gericht wählen</div>`;
-    const r = ET.rec(id), por = d.mode === 'split' ? '1 Portion' : '2 Portionen';
+    const d = S.plan.days[i], id = d[k], flag = ET.FLAG_C[k];
+    if (!id) return `<div class="slot empty" data-si="${i}" data-sk="${k}" data-act="choose" data-i="${i}" data-k="${k}">${k === 's' ? '+ Snack hinzufügen (optional)' : '+ ' + slotLabel(d, k) + ': Gericht wählen'}</div>`;
+    const r = ET.rec(id), por = k === 's' ? '1 Portion' : d.mode === 'split' ? '1 Portion' : '2 Portionen';
     return `<div class="slot" data-si="${i}" data-sk="${k}" data-act="openSlot" data-i="${i}" data-k="${k}"><span class="grip" aria-hidden="true">⠿</span>
       <div class="t ${d[flag] ? 'done' : ''}"><b>${esc(r.name)}</b><div class="muted">${slotLabel(d, k)} · ${r.min} Min · ${por}${d[flag] ? ' · gekocht' : ''}</div></div></div>`;
   }
@@ -60,32 +61,32 @@
     ET.openRecipe(S.plan.days[+t.dataset.i][t.dataset.k], { i: +t.dataset.i, k: t.dataset.k });
   };
   A.openRecipeAt = t => {
-    const i = +t.dataset.i, m = t.dataset.m, d = S.plan.days[i], k = d.mode === 'split' && m === 'D' ? 'b' : 'a';
+    const i = +t.dataset.i, m = t.dataset.m, d = S.plan.days[i], k = ET.slotKey(d, m);
     ET.openRecipe(d[k], { i, k });
   };
 
   // ---------- Auswahl-Sheet ----------
-  const CS = { i: 0, k: 'a', q: '', quick: false, protein: false, cheap: false, budget: false, all: false };
-  A.choose = t => { Object.assign(CS, { i: +t.dataset.i, k: t.dataset.k, q: '', quick: false, protein: false, cheap: false, budget: false, all: false }); ET.sheet.open('Gericht wählen', chooseHtml); };
+  const CS = { i: 0, k: 'a', q: '', quick: false, easy: false, protein: false, cheap: false, budget: false, all: false };
+  A.choose = t => { Object.assign(CS, { i: +t.dataset.i, k: t.dataset.k, q: '', quick: false, easy: false, protein: false, cheap: false, budget: false, all: false }); ET.sheet.open(CS.k === 's' ? 'Snack wählen' : 'Gericht wählen', chooseHtml); };
   A.chip = t => { CS[t.dataset.f] = !CS[t.dataset.f]; ET.sheet.refresh(); };
   function cards() {
-    const list = ET.suggestions({ q: CS.q, quick: CS.quick, protein: CS.protein, cheap: CS.cheap, budget: CS.budget, showAll: CS.all });
+    const list = ET.suggestions({ type: CS.k === 's' ? 'snack' : 'meal', q: CS.q, quick: CS.quick, easy: CS.easy, protein: CS.protein, cheap: CS.cheap, budget: CS.budget, showAll: CS.all });
     if (!list.length) return '<div class="muted" style="padding:14px 0">Keine passenden Gerichte. Filter lockern' + (S.settings.maxMin && !CS.all ? ' oder „Zeitlimit ignorieren“ antippen.' : '.') + '</div>';
     return list.map(s => {
       const warn = s.fl.aHit.map(a => '⚠ ' + a).concat(s.fl.dHit.map(d => '⚠ ' + esc(d)));
       return `<div class="card" style="margin:8px 0"><div class="row nowrap"><div style="flex:1;min-width:0"><b>${esc(s.r.name)}</b>${s.r.custom ? ' <span class="badge">eigenes</span>' : ''}
-        <div class="muted">${s.r.min} Min${warn.length ? ' · <span class="warn">' + warn.join(', ') + '</span>' : ''}</div></div>
+        <div class="muted">${s.r.min} Min${(s.r.tags || []).includes('einfach') ? ' · einfach' : ''}${(s.r.tags || []).includes('dip') ? ' · Dip' : ''}${(s.r.tags || []).includes('eintopf') ? ' · Ein-Topf' : ''}${warn.length ? ' · <span class="warn">' + warn.join(', ') + '</span>' : ''}</div></div>
         <button class="small primary" data-act="pickRecipe" data-id="${s.r.id}">wählen</button></div>
         <details><summary>Details</summary><div class="muted">Pro Portion: ${fmtN(s.n)}</div>
-        <div class="muted">≈ ${eur(s.marginal / 2)} Zusatzkosten je Portion${s.offer ? ' · <b class="ok">' + s.offer + ' Zutat(en) im Angebot</b>' : ''}${s.stock ? ' · ' + s.stock + ' Zutat(en) im Vorrat' : ''}</div>
-        <div class="muted">Zutaten (2 Portionen): ${Object.entries(s.r.ing).map(([id, a]) => esc(item(id).name) + ' ' + Math.round(a) + ' ' + item(id).unit).join(', ')}</div></details></div>`;
+        <div class="muted">≈ ${eur(s.per)} Zusatzkosten je Portion${s.offer ? ' · <b class="ok">' + s.offer + ' Zutat(en) im Angebot</b>' : ''}${s.stock ? ' · ' + s.stock + ' Zutat(en) im Vorrat' : ''}</div>
+        <div class="muted">Zutaten (${ET.serv(s.r)} Portion${ET.serv(s.r) > 1 ? 'en' : ''}): ${Object.entries(s.r.ing).map(([id, a]) => esc(item(id).name) + ' ' + Math.round(a * 10) / 10 + ' ' + item(id).unit).join(', ')}</div></details></div>`;
     }).join('');
   }
   function chooseHtml() {
     const d = S.plan.days[CS.i], left = ET.budgetLeft();
     return `<div class="muted">${ET.WEEKDAYS[CS.i]} · ${slotLabel(d, CS.k)}</div>
       <input id="cq" type="search" placeholder="Name oder Zutat suchen" value="${esc(CS.q)}" style="margin:8px 0">
-      <div class="chips">${ET.ui.chip('schnell ≤20 Min', CS.quick, 'chip', 'data-f="quick"')}${ET.ui.chip('eiweißreich', CS.protein, 'chip', 'data-f="protein"')}${ET.ui.chip('günstig / Angebot', CS.cheap, 'chip', 'data-f="cheap"')}${left != null ? ET.ui.chip('passt ins Budget', CS.budget, 'chip', 'data-f="budget"') : ''}${S.settings.maxMin ? ET.ui.chip('Zeitlimit ignorieren', CS.all, 'chip', 'data-f="all"') : ''}</div>
+      <div class="chips">${ET.ui.chip('schnell ≤20 Min', CS.quick, 'chip', 'data-f="quick"')}${ET.ui.chip('einfach', CS.easy, 'chip', 'data-f="easy"')}${ET.ui.chip('eiweißreich', CS.protein, 'chip', 'data-f="protein"')}${ET.ui.chip('günstig / Angebot', CS.cheap, 'chip', 'data-f="cheap"')}${left != null ? ET.ui.chip('passt ins Budget', CS.budget, 'chip', 'data-f="budget"') : ''}${S.settings.maxMin ? ET.ui.chip('Zeitlimit ignorieren', CS.all, 'chip', 'data-f="all"') : ''}</div>
       <div id="clist">${cards()}</div>`;
   }
   ET.onInput(e => { if (e.target.id === 'cq') { CS.q = e.target.value; document.getElementById('clist').innerHTML = cards(); } });
@@ -100,13 +101,14 @@
     ET._recCtx = ctx || null; ET._recId = id;
   };
   function recipeHtml(r, ctx) {
-    const d = ctx ? S.plan.days[ctx.i] : null, f = d && d.mode === 'split' ? 0.5 : 1, ni = ET.ingNutri(r.ing), fl = ET.recipeFlags(r);
-    const flag = ctx ? (ctx.k === 'a' ? 'cA' : 'cB') : null;
-    let h = `<div class="muted">${r.min} Min · ${ET.recipeCostPerPortion(r) ? '≈ ' + eur(ET.recipeCostPerPortion(r)) + ' je Portion' : ''}${(r.tools || []).length ? ' · Geräte: ' + r.tools.join(', ') : ''}</div>`;
+    const d = ctx ? S.plan.days[ctx.i] : null, f = d && ctx.k !== 's' && d.mode === 'split' ? 0.5 : 1, ni = ET.ingNutri(r.ing), fl = ET.recipeFlags(r);
+    const flag = ctx ? ET.FLAG_C[ctx.k] : null, sv = ET.serv(r);
+    const tg = (r.tags || []).map(t => ({ einfach: 'einfach', dip: 'Dip', eintopf: 'Ein-Topf' }[t])).filter(Boolean).concat(r.type === 'snack' ? ['Snack'] : []);
+    let h = `<div class="muted">${r.min} Min · ${ET.recipeCostPerPortion(r) ? '≈ ' + eur(ET.recipeCostPerPortion(r)) + ' je Portion' : ''}${(r.tools || []).length ? ' · Geräte: ' + r.tools.join(', ') : ''}</div>${tg.length ? '<div class="chips">' + tg.map(t => `<span class="badge">${t}</span>`).join('') + '</div>' : ''}`;
     if (fl.warn) h += `<div class="warn" style="margin:4px 0">⚠ ${fl.aHit.concat(fl.dHit).map(esc).join(', ')}</div>`;
     h += `<div class="card"><h3>Pro Portion</h3><div class="muted">${fmtN(ET.portionN(r))}</div>${ni.unknown.length ? `<div class="warn" style="font-size:.85rem">Nährwerte unvollständig (${ni.unknown.map(i => esc(item(i).name)).join(', ')})</div>` : ''}
-      <div class="muted" style="font-size:.82rem">Inkl. ca. 10 g Öl je Portion, Richtwerte.</div></div>`;
-    h += `<h3>Zutaten ${d ? (f === 1 ? '(2 Portionen)' : '(1 Portion)') : '(2 Portionen)'}</h3><div class="muted">${Object.entries(r.ing).map(([iid, a]) => `${Math.round(a * f * 10) / 10} ${item(iid).unit} ${esc(item(iid).name)}`).join('<br>')}</div>`;
+      <div class="muted" style="font-size:.82rem">${r.type === 'snack' ? 'Richtwerte.' : 'Inkl. ca. 10 g Öl je Portion, Richtwerte.'}</div></div>`;
+    h += `<h3>Zutaten ${d ? (f === 1 ? '(' + sv + ' Portion' + (sv > 1 ? 'en' : '') + ')' : '(1 Portion)') : '(' + sv + ' Portion' + (sv > 1 ? 'en' : '') + ')'}</h3><div class="muted">${Object.entries(r.ing).map(([iid, a]) => `${Math.round(a * f * 10) / 10} ${item(iid).unit} ${esc(item(iid).name)}`).join('<br>')}</div>`;
     h += `<h3 style="margin-top:12px">Zubereitung</h3><p style="margin:0">${esc(r.steps || '–')}</p>`;
     h += '<div class="row" style="margin-top:16px">';
     if (ctx) h += `<button class="primary" data-act="recCook">${d[flag] ? 'Gekocht zurücknehmen' : 'Gekocht ✓'}</button><button data-act="recRemove">Aus Plan entfernen</button>`;
@@ -114,16 +116,17 @@
     if (r.custom) h += '<button data-act="recEdit">Bearbeiten</button><button data-act="recDelete">Löschen</button>';
     return h + '</div>';
   }
-  A.recCook = () => { const c = ET._recCtx, d = S.plan.days[c.i], flag = c.k === 'a' ? 'cA' : 'cB'; ET.setCooked(c.i, c.k, !d[flag]); ET.sheet.refresh(); ET.render(); };
+  A.recCook = () => { const c = ET._recCtx, d = S.plan.days[c.i], flag = ET.FLAG_C[c.k]; ET.setCooked(c.i, c.k, !d[flag]); ET.sheet.refresh(); ET.render(); };
   A.recRemove = () => {
     const c = ET._recCtx, d = S.plan.days[c.i];
-    if (d[c.k === 'a' ? 'cA' : 'cB']) return alert('Schon gekocht. Bitte erst „Gekocht zurücknehmen“.');
+    if (d[ET.FLAG_C[c.k]]) return alert('Schon gekocht. Bitte erst „Gekocht zurücknehmen“.');
     d[c.k] = null; S.plan.bought = false; ET.save(); ET.sheet.close(); ET.render();
   };
   A.recToPlan = () => {
     ET.ensurePlan();
+    const snack = (ET.rec(ET._recId) || {}).type === 'snack';
     for (let i = 0; i < S.plan.days.length; i++) {
-      const d = S.plan.days[i], k = !d.a ? 'a' : (d.mode === 'split' && !d.b ? 'b' : null);
+      const d = S.plan.days[i], k = snack ? (!d.s ? 's' : null) : !d.a ? 'a' : (d.mode === 'split' && !d.b ? 'b' : null);
       if (k) { d[k] = ET._recId; S.plan.bought = false; ET.save(); ET.sheet.close(); ET.selDay = i; ET.go('plan'); return; }
     }
     alert('Alle Plätze sind belegt. Entferne zuerst ein Gericht im Plan.');
@@ -162,11 +165,12 @@
   function move(from, to) {
     const days = S.plan.days, d1 = days[from.i];
     let ti = to.i, tk = to.k;
-    if (to.type === 'day') { const d = days[ti]; tk = !d.a ? 'a' : (d.mode === 'split' && !d.b ? 'b' : 'a'); }
+    if (to.type === 'day') { const d = days[ti]; tk = from.k === 's' ? 's' : !d.a ? 'a' : (d.mode === 'split' && !d.b ? 'b' : 'a'); }
     const d2 = days[ti];
     if (!d2 || (from.i === ti && from.k === tk)) return;
-    const f1 = from.k === 'a' ? 'cA' : 'cB', f2 = tk === 'a' ? 'cA' : 'cB';
-    if (d1[f1] || d2[f2] || d1.eL || d1.eD || d2.eL || d2.eD) return alert('Gekochte oder gegessene Gerichte lassen sich nicht verschieben. Bitte erst die Haken zurücknehmen.');
+    if ((from.k === 's') !== (tk === 's')) return;   // Snacks nur mit Snacks tauschen
+    const f1 = ET.FLAG_C[from.k], f2 = ET.FLAG_C[tk], snack = from.k === 's';
+    if (d1[f1] || d2[f2] || (snack ? d1.eS || d2.eS : d1.eL || d1.eD || d2.eL || d2.eD)) return alert('Gekochte oder gegessene Gerichte lassen sich nicht verschieben. Bitte erst die Haken zurücknehmen.');
     const tmp = d1[from.k]; d1[from.k] = d2[tk]; d2[tk] = tmp;
     S.plan.bought = false; ET.save(); ET.selDay = ti; ET.render();
   }

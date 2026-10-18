@@ -1,6 +1,6 @@
 // Service Worker: App-Dateien aus dem Cache (im Hintergrund aktualisiert), Daten-Dateien zuerst vom Netz.
-const VERSION = 'et-v1';
-const APP = ['./', 'index.html', 'data.js', 'app/core.js', 'app/ui.js', 'app/home.js', 'app/plan.js', 'app/shop.js', 'app/more.js', 'app/boot.js',
+const VERSION = 'et-v2';
+const APP = ['./', 'index.html', 'data.js', 'data-more.js', 'app/core.js', 'app/ui.js', 'app/home.js', 'app/plan.js', 'app/shop.js', 'app/more.js', 'app/boot.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'];
 const DATA = ['offers.js', 'products.js', 'nutrition.js'];
 

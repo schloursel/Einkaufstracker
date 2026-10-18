@@ -34,7 +34,7 @@
     s.fill = Object.assign({ kuehl: 0, gefrier: 0 }, s.fill || {});
     if (s.plan && !s.plan.days) s.plan = null;
     if (s.plan) {
-      s.plan.days.forEach(day => { day.eL = !!day.eL; day.eD = !!day.eD; });
+      s.plan.days.forEach(day => { day.eL = !!day.eL; day.eD = !!day.eD; day.s = day.s || null; day.cS = !!day.cS; day.eS = !!day.eS; });
       s.plan.checked = s.plan.checked || {};
       s.plan.pantryChecked = !!s.plan.pantryChecked;
     }
@@ -130,7 +130,9 @@
     for (const [id, a] of Object.entries(ing)) { const x = nutOf(id, a); if (x) n = addN(n, x); else unknown.push(id); }
     return { n, unknown };
   }
-  const portionN = r => addN(scaleN(ingNutri(r.ing).n, 0.5), OIL);
+  const serv = r => r.serv || 2;                       // Portionen je Rezept (Gerichte 2, Snacks 1)
+  const portionN = r => { const n = scaleN(ingNutri(r.ing).n, 1 / serv(r)); return r.type === 'snack' ? n : addN(n, OIL); };
+  ET.serv = serv;
   const shakeN = () => ingNutri(SHAKE.ing).n;
   const fmtN = n => `${Math.round(n[0])} kcal · ${Math.round(n[1])} g Eiweiß · ${Math.round(n[2])} g KH · ${Math.round(n[3])} g Fett${n[4] ? ' · ' + Math.round(n[4]) + ' g Ballast.' : ''}`;
   Object.assign(ET, { nutOf, addN, scaleN, ingNutri, portionN, shakeN, fmtN, OIL });
@@ -148,12 +150,12 @@
     return { missing, aHit, dHit, blocked: missing.length > 0, warn: aHit.length + dHit.length > 0 };
   }
   ET.recipeFlags = recipeFlags;
-  ET.recipeCostPerPortion = r => Object.entries(r.ing).reduce((s, [id, a]) => s + a / item(id).pack * price(id), 0) / 2;
+  ET.recipeCostPerPortion = r => Object.entries(r.ing).reduce((s, [id, a]) => s + a / item(id).pack * price(id), 0) / serv(r);
 
   // ---------- Plan ----------
   const DAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag'];   // Kochtage (Mittag + Abend)
   const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
-  const newDay = () => ({ mode: 'once', a: null, b: null, cA: false, cB: false, eL: false, eD: false });
+  const newDay = () => ({ mode: 'once', a: null, b: null, s: null, cA: false, cB: false, cS: false, eL: false, eD: false, eS: false });
   ET.DAYS = DAYS; ET.WEEKDAYS = WEEKDAYS;
   function ensurePlan() {
     if (!S.plan) { S.plan = { week: iso(nextMonday()), days: DAYS.map(newDay), shake: [false, false, false, false, false], bought: false, spent: 0, checked: {}, pantryChecked: false }; ET.save(); }
@@ -166,11 +168,11 @@
   ET.startNewWeek = () => { S.plan = null; ensurePlan(); };
 
   // Einträge des Plans; ohne all = nur noch nicht gekochte (Basis für die Einkaufsliste)
-  const entries = all => (S.plan ? S.plan.days.flatMap(d => d.mode === 'split'
+  const entries = all => (S.plan ? S.plan.days.flatMap(d => (d.mode === 'split'
     ? [d.a && (all || !d.cA) && { id: d.a, f: 0.5 }, d.b && (all || !d.cB) && { id: d.b, f: 0.5 }]
-    : [d.a && (all || !d.cA) && { id: d.a, f: 1 }]).filter(Boolean) : []);
+    : [d.a && (all || !d.cA) && { id: d.a, f: 1 }]).concat([d.s && (all || !d.cS) && { id: d.s, f: 1, snack: true }])).filter(Boolean) : []);
   const slotCount = () => (S.plan ? S.plan.days.reduce((s, d) => s + (d.mode === 'split' ? 2 : 1), 0) : DAYS.length);
-  const filled = () => entries(true).length;
+  const filled = () => entries(true).filter(e => !e.snack).length;   // nur Hauptmahlzeiten, Snacks sind optional
   Object.assign(ET, { entries, slotCount, filled, newDay });
 
   function need(picks) {
@@ -202,21 +204,22 @@
   ET.suggestions = function (opts = {}) {
     const picks = entries(), base = listCost(shoppingFor(picks)), q = normS(opts.q || '');
     const left = ET.budgetLeft();
-    let out = ET.allRecipes().filter(r => !picks.some(e => e.id === r.id)).map(r => {
-      const marginal = listCost(shoppingFor([...picks, { id: r.id, f: 1 }])) - base, n = portionN(r), ids = Object.keys(r.ing), fl = recipeFlags(r);
-      return { r, marginal, n, fl, offer: ids.filter(isOffer).length, stock: ids.filter(id => pantryAmt(id) > 0).length, score: marginal - Math.min(n[1], 40) * 0.08 + (fl.warn ? 100 : 0) };
+    const wantSnack = opts.type === 'snack';
+    let out = ET.allRecipes().filter(r => (r.type === 'snack') === wantSnack && !picks.some(e => e.id === r.id)).map(r => {
+      const marginal = listCost(shoppingFor([...picks, { id: r.id, f: 1 }])) - base, n = portionN(r), ids = Object.keys(r.ing), fl = recipeFlags(r), per = marginal / serv(r);
+      return { r, marginal, per, n, fl, offer: ids.filter(isOffer).length, stock: ids.filter(id => pantryAmt(id) > 0).length, score: marginal - Math.min(n[1], 40) * 0.08 + (fl.warn ? 100 : 0) };
     }).filter(x => !x.fl.blocked);
-    if (S.settings.maxMin && opts.respectTime !== false) out = out.filter(x => x.r.min <= S.settings.maxMin || opts.showAll);
+    if (S.settings.maxMin && !wantSnack && opts.respectTime !== false) out = out.filter(x => x.r.min <= S.settings.maxMin || opts.showAll);
     if (q) out = out.filter(x => normS(x.r.name).includes(q) || Object.keys(x.r.ing).some(id => normS(item(id).name).includes(q)));
     if (opts.quick) out = out.filter(x => x.r.min <= 20);
-    if (opts.protein) out = out.filter(x => x.n[1] >= 30);
-    if (opts.cheap) out = out.filter(x => x.offer > 0 || x.marginal / 2 <= 1.2);
+    if (opts.easy) out = out.filter(x => (x.r.tags || []).includes('einfach'));
+    if (opts.protein) out = out.filter(x => x.n[1] >= (wantSnack ? 15 : 30));
+    if (opts.cheap) out = out.filter(x => x.offer > 0 || x.per <= 1.2);
     if (opts.budget && left != null) out = out.filter(x => x.marginal <= Math.max(0, left));
     return out.sort((a, b) => a.score - b.score);
   };
   ET.autoPick = function () {
-    const ids = [], groups = {}, picks = [];
-    const saved = S.plan.days.map(d => ({ a: d.a, b: d.b, mode: d.mode }));
+    const ids = [], groups = {};
     S.plan.days.forEach(d => { d.a = null; d.b = null; d.mode = 'once'; });
     for (let i = 0; i < DAYS.length; i++) {
       const s = ET.suggestions({}).find(x => !groups[x.r.group]);
@@ -245,12 +248,15 @@
   };
   ET.expiring = (days = 3) => Object.entries(S.pantry).filter(([, p]) => p.amount > 0 && p.exp && p.exp <= iso(addDays(today(), days))).map(([id, p]) => ({ id, amount: p.amount, exp: p.exp }));
 
-  const slotKey = (d, meal) => (d.mode === 'split' && meal === 'D' ? 'b' : 'a');
+  // Plätze eines Tages: a (Mittag bzw. Mittag & Abend), b (Abend, nur getrennt), s (Snack, optional)
+  const FLAG_C = { a: 'cA', b: 'cB', s: 'cS' }, FLAG_E = { L: 'eL', D: 'eD', S: 'eS' };
+  const slotKey = (d, meal) => (meal === 'S' ? 's' : d.mode === 'split' && meal === 'D' ? 'b' : 'a');
+  ET.FLAG_C = FLAG_C; ET.FLAG_E = FLAG_E; ET.slotKey = slotKey;
   ET.recipeAt = (i, meal) => { const d = S.plan.days[i]; return d && d[slotKey(d, meal)] ? ET.rec(d[slotKey(d, meal)]) : null; };
   function setCooked(i, k, val) {
-    const d = S.plan.days[i], flag = k === 'a' ? 'cA' : 'cB';
+    const d = S.plan.days[i], flag = FLAG_C[k];
     if (!d[k] || d[flag] === val) return;
-    const r = ET.rec(d[k]), f = d.mode === 'split' ? 0.5 : 1;
+    const r = ET.rec(d[k]), f = k !== 's' && d.mode === 'split' ? 0.5 : 1;
     bookIng(Object.fromEntries(Object.entries(r.ing).map(([id, a]) => [id, a * f])), val ? -1 : 1);
     d[flag] = val;
   }
@@ -259,16 +265,16 @@
     const p = S.plan, d = p.days[i] || newDay(), date = iso(addDays(parseIso(p.week), i));
     let n = [0, 0, 0, 0, 0]; const meals = [];
     if (p.shake[i]) n = addN(n, shakeN());
-    [['L', d.eL], ['D', d.eD]].forEach(([m, on]) => { const r = on && ET.recipeAt(i, m); if (r) { n = addN(n, portionN(r)); meals.push(r.id); } });
+    [['L', d.eL], ['D', d.eD], ['S', d.eS]].forEach(([m, on]) => { const r = on && ET.recipeAt(i, m); if (r) { n = addN(n, portionN(r)); meals.push(r.id); } });
     if (n[0] > 0) S.log[date] = { n, meals, shake: !!p.shake[i] }; else delete S.log[date];
   }
   ET.setEaten = function (i, meal, val) {
     const d = S.plan.days[i]; if (!d) return;
-    const k = slotKey(d, meal), flagE = meal === 'L' ? 'eL' : 'eD';
+    const k = slotKey(d, meal), flagE = FLAG_E[meal];
     if (!d[k]) return;
     d[flagE] = val;
     if (val) setCooked(i, k, true);
-    else if (d.mode === 'once') { if (!d.eL && !d.eD) setCooked(i, 'a', false); }
+    else if (k === 'a' && d.mode === 'once') { if (!d.eL && !d.eD) setCooked(i, 'a', false); }
     else setCooked(i, k, false);
     logDay(i); ET.save();
   };
@@ -278,7 +284,7 @@
   };
   ET.dayTotals = function (i) {
     const p = S.plan, d = p.days[i], done = [0, 0, 0, 0, 0]; let planned = shakeN().slice(), got = p.shake[i] ? shakeN().slice() : [0, 0, 0, 0, 0];
-    if (d) [['L', d.eL], ['D', d.eD]].forEach(([m, on]) => { const r = ET.recipeAt(i, m); if (r) { const n = portionN(r); planned = addN(planned, n); if (on) got = addN(got, n); } });
+    if (d) [['L', d.eL], ['D', d.eD], ['S', d.eS]].forEach(([m, on]) => { const r = ET.recipeAt(i, m); if (r) { const n = portionN(r); planned = addN(planned, n); if (on) got = addN(got, n); } });
     return { planned, done: got };
   };
   ET.markBought = function () {
