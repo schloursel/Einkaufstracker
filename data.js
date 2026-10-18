@@ -33,7 +33,10 @@ window.CATALOG = [
   { id: 'champignons', name: 'Champignons 400 g',        cat: 'Obst & Gemüse', unit: 'g', pack: 400, price: 1.39, p: 0.03, shelf: 5, est: true },
   { id: 'brokkoli',  name: 'TK-Brokkoli 750 g',          cat: 'Tiefkühl',  unit: 'g',   pack: 750, price: 1.29, p: 0.028, shelf: 180 },
   { id: 'tkspinat',  name: 'TK-Blattspinat 750 g',       cat: 'Tiefkühl',  unit: 'g',   pack: 750, price: 1.99, p: 0.03,  shelf: 180 },
-  { id: 'tkgemuese', name: 'TK-Gemüsepfanne 750 g',      cat: 'Tiefkühl',  unit: 'g',   pack: 750, price: 1.39, p: 0.02,  shelf: 180 }
+  { id: 'tkgemuese', name: 'TK-Gemüsepfanne 750 g',      cat: 'Tiefkühl',  unit: 'g',   pack: 750, price: 1.39, p: 0.02,  shelf: 180 },
+  { id: 'milch',     name: 'Milch 1,5 % (1 l)',          cat: 'Kühlregal', unit: 'ml',  pack: 1000,price: 0.95, p: 0.034, shelf: 10, est: true },
+  { id: 'banane',    name: 'Bananen (5 Stück)',          cat: 'Obst & Gemüse', unit: 'Stk', pack: 5, price: 1.15, p: 1.3, shelf: 6, est: true },
+  { id: 'honig',     name: 'Honig 500 g',                cat: 'Vorrat',    unit: 'g',   pack: 500, price: 3.49, p: 0.003, shelf: 730, est: true }
 ];
 
 // Rezepte: ergibt 2 Portionen (Abendessen + Mittag am Folgetag). amount in Einheit des Katalogartikels.
@@ -79,5 +82,61 @@ window.RECIPES = [
     steps: 'Gemüse anbraten, Linsen und 600 ml Wasser 15 Min kochen, Kokosmilch zugeben, pürieren.' },
   { id: 'ofennudeln', name: 'Mozzarella-Ofennudeln mit Brokkoli', min: 30, group: 'kaese',
     ing: { nudeln: 200, passata: 400, mozzarella: 250, brokkoli: 200 },
-    steps: 'Nudeln, Brokkoli und Passata mischen, Mozzarella darüber, 15 Min bei 200 °C überbacken.' }
+    steps: 'Nudeln, Brokkoli und Passata mischen, Mozzarella darüber, 15 Min bei 200 °C überbacken.' },
+  { id: 'kichererbsencouscous', name: 'Kichererbsen-Feta-Couscous', min: 15, group: 'bohnen',
+    ing: { kichererbsen: 250, feta: 100, couscous: 120, paprika: 1, zucchini: 150 },
+    steps: 'Couscous mit heißem Wasser quellen lassen, Zucchini und Paprika anbraten, alles mit Kichererbsen und zerbröseltem Feta mischen.' },
+  { id: 'tofucurry', name: 'Tofu-Kokos-Curry mit Reis', min: 25, group: 'tofu',
+    ing: { tofu: 400, kokosmilch: 200, tkgemuese: 400, reis: 120, zwiebeln: 50 },
+    steps: 'Tofu anbraten, Zwiebel und Gemüse dazu, mit Kokosmilch und Curry 10 Min köcheln. Reis separat kochen.' },
+  { id: 'hummuswrap', name: 'Hummus-Feta-Wraps mit Rohkost', min: 10, group: 'kaese',
+    ing: { wraps: 4, hummus: 100, paprika: 1, feta: 100, karotten: 100 },
+    steps: 'Wraps mit Hummus bestreichen, Paprika und Karotte in Streifen und Feta darauf, einrollen.' },
+  { id: 'suesskartlinsen', name: 'Süßkartoffel-Linsen-Eintopf', min: 30, group: 'linsen',
+    ing: { linsen: 120, suesskart: 400, kokosmilch: 200, zwiebeln: 100, tkspinat: 150 },
+    steps: 'Zwiebel und Süßkartoffelwürfel anbraten, Linsen, Kokosmilch und 500 ml Wasser 20 Min köcheln, Spinat zugeben.' },
+  { id: 'ofenkartoffelnbohnen', name: 'Ofenkartoffeln mit Bohnen & Quark', min: 35, group: 'quark',
+    ing: { kartoffeln: 600, quark: 250, kidney: 240, zwiebeln: 50 },
+    steps: 'Kartoffelspalten bei 200 °C 25 Min backen, Bohnen erhitzen, Quark mit Kräutern würzen und dazu servieren.' },
+  { id: 'halloumiwrap', name: 'Halloumi-Wraps mit Skyr-Dip', min: 15, group: 'kaese',
+    ing: { halloumi: 200, wraps: 4, paprika: 1, skyr: 100 },
+    steps: 'Halloumi und Paprika anbraten, in Wraps füllen, Skyr als Dip.' }
 ];
+
+// Nährwerte je 100 g/ml (Stk-Artikel: je Stück): [kcal, Eiweiß, Kohlenhydrate, Fett, Ballaststoffe]
+// Richtwerte (Durchschnitt, Rohgewicht bei Trockenware), keine Herstellerangaben.
+window.NUTR = {
+  eier: [80, 7, 0.4, 5.5, 0], skyr: [63, 11, 4, 0.2, 0], quark: [67, 12, 4, 0.3, 0], huettenk: [98, 12, 3, 4.3, 0],
+  feta: [260, 15, 1, 21, 0], mozzarella: [240, 18, 1, 18, 0], halloumi: [320, 22, 2, 25, 0], tofu: [130, 14, 1, 7.5, 0.5],
+  raeuchertofu: [175, 17, 1.5, 11, 1], hummus: [280, 6.5, 9, 23, 5], linsen: [340, 24, 50, 1.5, 11],
+  kichererbsen: [120, 7, 16, 2.5, 5], kidney: [100, 7, 13, 0.5, 6], haferflocken: [370, 13, 59, 7, 10],
+  nudeln: [345, 13, 62, 2.5, 8], reis: [350, 7, 78, 0.8, 1], couscous: [360, 13, 73, 1.5, 3], passata: [25, 1.3, 4, 0.2, 1],
+  dosentom: [20, 1, 3.5, 0.2, 1], kokosmilch: [180, 1.5, 3, 18, 0], brot: [200, 6.5, 38, 1.2, 8], wraps: [190, 5.5, 33, 4, 2],
+  kartoffeln: [70, 2, 15, 0.1, 2], suesskart: [86, 1.6, 20, 0.1, 3], zwiebeln: [40, 1.1, 8, 0.1, 1.7], karotten: [35, 0.9, 7, 0.2, 3],
+  paprika: [45, 1.5, 8, 0.4, 3.5], zucchini: [17, 1.2, 2, 0.3, 1], champignons: [22, 2.7, 0.5, 0.3, 1],
+  brokkoli: [30, 3, 2.5, 0.4, 3], tkspinat: [22, 2.7, 0.5, 0.5, 2], tkgemuese: [40, 2, 6, 0.5, 3],
+  milch: [47, 3.4, 4.9, 1.5, 0], banane: [105, 1.3, 27, 0.4, 3], honig: [305, 0.3, 82, 0, 0]
+};
+
+// Täglicher Frühstücks-Shake (Mo-Fr), je Portion. Zimt wird als vorhanden angenommen.
+window.SHAKE = { name: 'Quark-Bananen-Shake', days: 5, ing: { quark: 250, milch: 300, banane: 1, honig: 20 } };
+
+// Lagerort (kuehl | gefrier | vorrat) und Unverträglichkeiten je Katalogartikel
+(function () {
+  const kuehl = 'eier skyr quark huettenk feta mozzarella halloumi tofu raeuchertofu hummus milch paprika zucchini champignons karotten'.split(' ');
+  const gefrier = 'brokkoli tkspinat tkgemuese'.split(' ');
+  const allergens = {
+    laktose: 'skyr quark huettenk feta mozzarella halloumi milch'.split(' '),
+    gluten: 'nudeln couscous haferflocken brot wraps'.split(' '),
+    soja: 'tofu raeuchertofu'.split(' '),
+    nuesse: []
+  };
+  CATALOG.forEach(c => {
+    c.storage = gefrier.includes(c.id) ? 'gefrier' : kuehl.includes(c.id) ? 'kuehl' : 'vorrat';
+    c.allergens = Object.keys(allergens).filter(a => allergens[a].includes(c.id));
+  });
+  // Benötigte Küchengeräte (Herd wird vorausgesetzt)
+  const tools = { fetaofen: ['backofen'], halloumibowl: ['backofen'], ofennudeln: ['backofen'], ofenkartoffelnbohnen: ['backofen', 'herd'], linsensuppe: ['herd', 'mixer'], hummuswrap: [] };
+  RECIPES.forEach(r => { r.tools = tools[r.id] || ['herd']; });
+})();
+CATALOG.forEach(c => { c.n = NUTR[c.id]; });
