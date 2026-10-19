@@ -195,9 +195,9 @@
     return list;
   }
   // Prognose: was bleibt nach der geplanten Woche übrig (Vorrat + Einkauf - Verbrauch), was geht leer, was läuft vorher ab
-  ET.afterWeek = function () {
-    const picks = entries(), buy = {}, use = {};
-    shoppingFor(picks).forEach(x => { buy[x.id] = x.amount; });
+  ET.afterWeek = function (opts = {}) {
+    const picks = entries(), buy = {}, use = {}, cartOnly = opts.cartOnly && S.plan && !S.plan.bought;   // cartOnly: nur Artikel zählen, die schon im Wagen sind
+    shoppingFor(picks).forEach(x => { buy[x.id] = cartOnly && !S.plan.checked[x.id] ? 0 : x.amount; });
     picks.forEach(e => { for (const [id, a] of Object.entries(ET.rec(e.id).ing)) use[id] = (use[id] || 0) + a * e.f; });
     const shakesLeft = Math.max(0, SHAKE.days - (S.plan ? S.plan.shake.filter(Boolean).length : 0));
     for (const [id, a] of Object.entries(SHAKE.ing)) use[id] = (use[id] || 0) + a * shakesLeft;
@@ -237,13 +237,27 @@
     }).filter(x => !x.fl.blocked);
     if (S.settings.maxMin && !wantSnack && opts.respectTime !== false) out = out.filter(x => x.r.min <= S.settings.maxMin || opts.showAll);
     if (q) out = out.filter(x => normS(x.r.name).includes(q) || Object.keys(x.r.ing).some(id => normS(item(id).name).includes(q)));
+    const rs = x => x.reuse - x.marginal * 0.5;
+    if (opts.reuse) {
+      // Reste: Vorrat, Einkauf und Wagen, die nach dem Plan übrig bleiben. Bald ablaufendes zählt doppelt.
+      const L = {}; ET.afterWeek({ cartOnly: opts.cartOnly }).forEach(x => { if (x.left > 0) L[x.id] = x; });
+      out.forEach(x => {
+        x.reuse = 0; x.reuseNames = [];
+        for (const [id, a] of Object.entries(x.r.ing)) {
+          const l = L[id]; if (!l) continue;
+          const used = Math.min(a, l.left); x.reuse += used / l.c.pack * price(id) * (l.soon ? 2 : 1);
+          if (used / l.left >= 0.3 || l.soon) x.reuseNames.push(l.c.name.replace(/ \d.*$| \(.*$/, ''));
+        }
+      });
+      out = out.filter(x => x.reuse > 0.05);
+    }
     const ings = (opts.ings || []).map(t => ET.ingIds(t));
     if (ings.length) {
       out.forEach(x => { x.hits = ings.filter(ids => ids.some(id => id in x.r.ing)).length; });
       const all = out.filter(x => x.hits === ings.length);
       // Wenige Treffer mit allen Zutaten: Gerichte mit nur einer der Zutaten folgen danach
       out = all.length >= 5 || ings.length < 2 ? all : out.filter(x => x.hits > 0);
-      out.sort((a, b) => b.hits - a.hits || a.score - b.score);
+      out.sort((a, b) => b.hits - a.hits || (opts.reuse ? rs(b) - rs(a) : a.score - b.score));
       out.fullCount = out.filter(x => x.hits === ings.length).length;
       return out;
     }
@@ -252,7 +266,7 @@
     if (opts.protein) out = out.filter(x => x.n[1] >= (wantSnack ? 15 : 30));
     if (opts.cheap) out = out.filter(x => x.offer > 0 || x.per <= 1.2);
     if (opts.budget && left != null) out = out.filter(x => x.marginal <= Math.max(0, left));
-    return out.sort((a, b) => a.score - b.score);
+    return out.sort((a, b) => (opts.reuse ? rs(b) - rs(a) : a.score - b.score));
   };
   ET.autoPick = function () {
     const ids = [], groups = {};
