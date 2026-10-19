@@ -16,21 +16,20 @@
     const sel = ET.selDay, td = ET.todayIdx();
     const cost = ET.weekCost(), budget = S.settings.budget;
     let html = `<div class="strip">${ET.WEEKDAYS.map((n, i) => `<button class="${i === sel ? 'sel' : ''} ${i === td ? 'today' : ''}" data-act="selDay" data-day="${i}" data-i="${i}">${SHORT[i]}<br><span class="dot ${i < 4 && !p.days[i].a ? '' : (i === 4 ? 'full' : 'plan')}" style="${i === sel ? 'background:var(--accent-t);opacity:.7' : ''}"></span></button>`).join('')}</div>`;
-    html += `<div class="row" style="margin:6px 0"><span class="muted">Einkauf ≈ <b>${eur(cost)}</b>${budget ? ' von ' + eur(budget) : ''}</span><button class="small" data-act="autoPick">Beste 4 automatisch</button></div>`;
-    if (budget) html += ET.ui.bar(cost, budget);
-    if (budget && cost > budget) html += `<div class="banner warn" style="margin-top:8px"><span>Der Plan liegt ${eur(cost - budget)} über dem Wochenbudget.</span></div>`;
+    html += `<div class="row" style="margin:6px 0"><span class="muted">Einkauf ≈ <b>${eur(cost)}</b></span><button class="small" data-act="autoPick">Beste 4 automatisch</button></div>`;
+    if (budget && cost > budget) html += `<div class="bad" style="margin:2px 0">${eur(cost - budget)} über dem Wochenbudget</div>`;
 
     const day = p.days[sel], sn = ET.shakeN();
     let dayN = sn.slice();
     if (day) ['L', 'D', 'S'].forEach(m => { const r = ET.recipeAt(sel, m); if (r) dayN = ET.addN(dayN, ET.portionN(r)); });
-    html += `<div class="card"><div class="row"><b>${ET.WEEKDAYS[sel]}</b><span class="muted">Tag: ${Math.round(dayN[0])} kcal · ${Math.round(dayN[1])} g Eiweiß</span></div>
-      <div class="mealrow" style="cursor:default"><span data-act="eatShake" data-i="${sel}">${ET.ui.check(p.shake[sel])}</span><span class="t">🥤 Frühstück: Shake<small>${fmtN(sn)}</small></span></div>`;
+    html += `<div class="card"><div class="row"><b>${ET.WEEKDAYS[sel]}</b><span class="muted">${Math.round(dayN[1])} g Eiweiß</span></div>
+      <div class="mealrow" style="cursor:default"><span data-act="eatShake" data-i="${sel}">${ET.ui.check(p.shake[sel])}</span><span class="t">🥤 Frühstück: Shake</span></div>`;
     if (day) {
       const touched = anyTouched(day), split = day.mode === 'split';
       html += `<div class="row" style="margin:8px 0 2px"><span class="muted">${split ? 'Mittag und Abend getrennt' : 'Einmal kochen, mittags mehr, abends dasselbe'}</span>${touched ? '' : `<button class="small" data-act="toggleMode" data-i="${sel}">${split ? 'einmal kochen' : 'getrennt kochen'}</button>`}</div>`;
       html += slotHtml(sel, 'a') + (split ? slotHtml(sel, 'b') : '') + slotHtml(sel, 's');
     } else html += '<div class="muted" style="margin-top:8px">Freitag: nur der Shake, danach bei den Eltern.</div>';
-    html += '</div><p class="muted">Tipp: Gericht antippen für Details, gedrückt halten und ziehen zum Verschieben (auch auf einen anderen Tag oben).</p>';
+    html += '</div>';
     return { title: 'Plan', sub: 'ab ' + p.week.split('-').reverse().join('.'), html };
   };
 
