@@ -19,16 +19,14 @@
     const est = list.some(x => item(x.id).est && !(S.prices[x.id] && S.prices[x.id].confirmed));
     const mode = ET.shopMode;
     let html = `<div class="row" style="margin:6px 0"><div class="seg"><button class="${!mode ? 'on' : ''}" data-act="shopMode" data-m="0">Ansicht</button><button class="${mode ? 'on' : ''}" data-act="shopMode" data-m="1">Laden-Modus</button></div><b>${eur(total)}</b></div>`;
-    if (budget) html += ET.ui.bar(ET.weekCost(), budget) + `<div class="muted" style="margin:2px 0 6px">${eur(ET.weekCost())} von ${eur(budget)}${ET.weekCost() > budget ? ' · <span class="bad">über Budget</span>' : ''}</div>`;
-    if (sav > 0.005) html += `<div class="muted">Ersparnis durch Angebote: ${eur(sav)}</div>`;
-    if (est && !mode) html += '<p class="warn" style="margin:6px 0">Einige Preise sind Schätzwerte (Mehr → Preise & Katalog).</p>';
+    if (budget && ET.weekCost() > budget) html += `<div class="bad" style="margin:2px 0 6px">${eur(ET.weekCost() - budget)} über dem Wochenbudget</div>`;
     if (ET.filled() < ET.slotCount()) html += '<div class="banner"><span>Der Plan ist noch nicht komplett, die Liste enthält bisher Shake und Mindestbestände.</span><button class="small" data-act="go" data-r="plan">Zum Plan</button></div>';
     if (!list.length) html += '<div class="card ok">Alles im Vorrat vorhanden.</div>';
 
     const row = (x, big) => {
       const c = item(x.id), have = ET.pantryAmt(x.id), on = !!p.checked[x.id], min = S.minStock[x.id] > 0;
-      const name = `${x.packs}× ${esc(c.name)}`, tags = `${ET.isOffer(x.id) ? ' <b class="ok">· Angebot</b>' : ''}${min ? ' <span class="badge">Mindestbestand</span>' : ''}${c.packUnsure ? ' <span class="badge warn">Packung unklar</span>' : ''}`;
-      const detail = big ? '' : `<div class="muted">Bedarf ${r1(x.need)} ${c.unit}${have ? ', Vorrat ' + r1(have) + ' ' + c.unit : ''} · Einkauf ${r1(x.amount)} ${c.unit}</div>`;
+      const name = `${x.packs}× ${esc(c.name)}`, tags = `${ET.isOffer(x.id) ? ' <b class="ok">· Angebot</b>' : ''}${c.packUnsure ? ' <span class="badge warn">Packung unklar</span>' : ''}`;
+      const detail = big ? '' : `<div class="muted">${r1(x.amount)} ${c.unit}${have ? ' · Vorrat ' + r1(have) + ' ' + c.unit : ''}</div>`;
       return `<div class="shoprow ${big ? 'big' : ''}" data-act="${mode ? 'tick' : 'noop'}" data-id="${esc(x.id)}">${mode ? ET.ui.check(on) : ''}<div class="t ${on ? 'done' : ''}">${name}${tags}${detail}</div><span class="muted">${eur(x.cost)}</span></div>`;
     };
     if (!mode) {
@@ -47,7 +45,6 @@
     const nChecked = list.filter(x => p.checked[x.id]).length;
     html += p.bought ? '<p class="ok">✓ Als eingekauft verbucht (Vorrat und Ausgaben aktualisiert).</p>'
       : (list.length ? `<button class="primary block" data-act="bought">${nChecked ? nChecked + ' abgehakte Artikel' : 'Alles'} als eingekauft buchen</button>` : '');
-    html += '<p class="muted" style="margin-top:10px">Zimt wird als vorhanden angenommen.</p>';
     return { title: 'Einkauf', sub: 'Montag ' + p.week.split('-').reverse().join('.'), html };
   };
   A.noop = () => {};
