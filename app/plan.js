@@ -17,6 +17,8 @@
     const cost = ET.weekCost(), budget = S.settings.budget;
     let html = `<div class="strip">${ET.WEEKDAYS.map((n, i) => `<button class="${i === sel ? 'sel' : ''} ${i === td ? 'today' : ''}" data-act="selDay" data-day="${i}" data-i="${i}">${SHORT[i]}<br><span class="dot ${i < 4 && !p.days[i].a ? '' : (i === 4 ? 'full' : 'plan')}" style="${i === sel ? 'background:var(--accent-t);opacity:.7' : ''}"></span></button>`).join('')}</div>`;
     html += `<div class="row" style="margin:6px 0"><span class="muted">Einkauf ≈ <b>${eur(cost)}</b></span><button class="small" data-act="autoPick">Beste 4 automatisch</button></div>`;
+    const wst = ET.planWaste();
+    if (wst.items.length) html += `<div class="muted" style="margin:2px 0" data-act="go" data-r="pantry">Reste am Ende ≈ <b>${eur(wst.value)}</b>: ${esc(wst.items.slice(0, 3).map(x => x.name.replace(/ \d.*$| \(.*$/, '')).join(', '))}${wst.items.length > 3 ? ' …' : ''} ›</div>`;
     if (budget && cost > budget) html += `<div class="bad" style="margin:2px 0">${eur(cost - budget)} über dem Wochenbudget</div>`;
 
     const day = p.days[sel], sn = ET.shakeN();
@@ -82,7 +84,7 @@
     return note + list.map(s => {
       const warn = s.fl.aHit.map(a => '⚠ ' + a).concat(s.fl.dHit.map(d => '⚠ ' + esc(d)));
       return `<div class="card" style="margin:8px 0"><div class="row nowrap"><div style="flex:1;min-width:0"><b>${esc(s.r.name)}</b>${s.r.custom ? ' <span class="badge">eigenes</span>' : ''}
-        ${s.reuseNames && s.reuseNames.length ? `<div class="ok" style="font-size:.9rem">Verbraucht: ${esc(s.reuseNames.slice(0, 4).join(', '))}</div>` : ''}<div class="muted">${s.r.min} Min${(s.r.tags || []).includes('einfach') ? ' · einfach' : ''}${(s.r.tags || []).includes('dip') ? ' · Dip' : ''}${(s.r.tags || []).includes('eintopf') ? ' · Ein-Topf' : ''}${warn.length ? ' · <span class="warn">' + warn.join(', ') + '</span>' : ''}</div></div>
+        ${s.wasteD < 0.3 ? '<div class="ok" style="font-size:.9rem">Wenig Reste</div>' : s.leftNames.length ? `<div class="warn" style="font-size:.9rem">Reste: ${esc(s.leftNames.slice(0, 3).join(', '))} (≈ ${eur(s.wasteD)})</div>` : ''}${s.reuseNames && s.reuseNames.length ? `<div class="ok" style="font-size:.9rem">Verbraucht: ${esc(s.reuseNames.slice(0, 4).join(', '))}</div>` : ''}<div class="muted">${s.r.min} Min${(s.r.tags || []).includes('einfach') ? ' · einfach' : ''}${(s.r.tags || []).includes('dip') ? ' · Dip' : ''}${(s.r.tags || []).includes('eintopf') ? ' · Ein-Topf' : ''}${warn.length ? ' · <span class="warn">' + warn.join(', ') + '</span>' : ''}</div></div>
         <button class="small primary" data-act="pickRecipe" data-id="${s.r.id}">wählen</button></div>
         <details><summary>Details</summary><div class="muted">Pro Portion: ${fmtN(s.n)}</div>
         <div class="muted">≈ ${eur(s.per)} Zusatzkosten je Portion${s.offer ? ' · <b class="ok">' + s.offer + ' Zutat(en) im Angebot</b>' : ''}${s.stock ? ' · ' + s.stock + ' Zutat(en) im Vorrat' : ''}</div>
