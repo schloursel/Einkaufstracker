@@ -236,7 +236,7 @@
     return use;
   }
   // Reste: Wert der neu gekauften Menge, die am Ende der Woche übrig bleibt. Frisches zählt voll, Trockenware kaum.
-  const keepW = shelf => (shelf <= 21 ? 1 : shelf <= 60 ? 0.6 : shelf <= 180 ? 0.3 : 0.1);
+  const keepW = shelf => (shelf <= 14 ? 1.5 : shelf <= 21 ? 1 : shelf <= 60 ? 0.6 : shelf <= 180 ? 0.3 : 0.1);
   function metrics(picks) {
     const list = shoppingFor(picks), use = usageOf(picks), left = {}; let waste = 0;
     list.forEach(x => {
@@ -253,12 +253,17 @@
   };
   ET.suggestions = function (opts = {}) {
     const picks = entries(), baseM = metrics(picks), base = baseM.cost, q = normS(opts.q || '');
+    // Vorrat, der diese Woche abläuft und vom Plan noch nicht verbraucht wird
+    const useNow = usageOf(picks), weekEnd = iso(addDays(ET.planMonday(), 6)), soonLeft = {};
+    for (const [id, q2] of Object.entries(S.pantry)) if (q2.amount > 0 && q2.exp && q2.exp <= weekEnd) { const l = q2.amount - (useNow[id] || 0); if (l > 0) soonLeft[id] = l; }
     const left = ET.budgetLeft();
     const wantSnack = opts.type === 'snack';
     let out = ET.allRecipes().filter(r => (r.type === 'snack') === wantSnack && !picks.some(e => e.id === r.id)).map(r => {
       const m2 = metrics([...picks, { id: r.id, f: 1 }]), marginal = m2.cost - base, wasteD = m2.waste - baseM.waste, n = portionN(r), ids = Object.keys(r.ing), fl = recipeFlags(r), per = marginal / serv(r);
       const leftNames = ids.filter(id => m2.left[id] && m2.left[id] / item(id).pack >= 0.3 && keepW(item(id).shelf) >= 0.6).map(id => item(id).name.replace(/ \d.*$| \(.*$/, ''));
-      return { r, marginal, wasteD, waste: m2.waste, leftNames, per, n, fl, offer: ids.filter(isOffer).length, stock: ids.filter(id => pantryAmt(id) > 0).length, score: marginal + wasteD - Math.min(n[1], 40) * 0.08 + (fl.warn ? 100 : 0) };
+      let expUse = 0; const expNames = [];
+      for (const [id, a] of Object.entries(r.ing)) if (soonLeft[id]) { expUse += Math.min(a, soonLeft[id]) / item(id).pack * price(id) * 2.5 * keepW(item(id).shelf); expNames.push(item(id).name.replace(/ \d.*$| \(.*$/, '')); }
+      return { r, marginal, wasteD, waste: m2.waste, leftNames, expUse, expNames, per, n, fl, offer: ids.filter(isOffer).length, stock: ids.filter(id => pantryAmt(id) > 0).length, score: marginal + wasteD - expUse - Math.min(n[1], 40) * 0.08 + (fl.warn ? 100 : 0) + (r.group === 'suess' && !wantSnack ? 1.5 : 0) };
     }).filter(x => !x.fl.blocked);
     if (S.settings.maxMin && !wantSnack && opts.respectTime !== false) out = out.filter(x => x.r.min <= S.settings.maxMin || opts.showAll);
     if (q) out = out.filter(x => normS(x.r.name).includes(q) || Object.keys(x.r.ing).some(id => normS(item(id).name).includes(q)));
