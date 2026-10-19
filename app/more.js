@@ -8,11 +8,11 @@
   const ALLERGENS = [['laktose', 'Laktose'], ['gluten', 'Gluten'], ['nuesse', 'Nüsse'], ['soja', 'Soja']];
 
   // ---------- Menü ----------
-  const LINKS = [['offers', 'Angebote', 'Wochenangebote bei Lidl'], ['products', 'Alle Produkte', 'Suche im Lidl-Sortiment mit Nährwerten'], ['recipes', 'Gerichte & eigene Rezepte', 'Alle Rezepte, eigene anlegen'],
-    ['prices', 'Preise & Katalog', 'Katalogpreise korrigieren'], ['tracker', 'Tracker', 'Ausgaben, Wegwurf, Eiweiß und kcal'], ['settings', 'Einstellungen', 'Ziele, Budget, Küche, Erinnerungen'],
-    ['backup', 'Backup', 'Export und Import'], ['info', 'Info & Quellen', 'Woher die Daten stammen']];
-  ET.views.more = () => ({ title: 'Mehr', sub: '', html: '<div class="card" style="padding:4px 16px">' + LINKS.map(([k, t, s]) =>
-    `<div class="list-link" data-act="go" data-r="more/${k}"><div><b>${t}</b><div class="muted">${s}</div></div><span class="muted">›</span></div>`).join('') + '</div>' });
+  const LINKS = [['offers', 'Angebote', 'Wochenangebote bei Lidl'], ['recipes', 'Gerichte & eigene Rezepte', ''], ['settings', 'Einstellungen', 'Ziele, Budget, Küche, Erinnerungen']];
+  const MORE_LINKS = [['products', 'Alle Produkte', 'Lidl-Sortiment mit Nährwerten'], ['prices', 'Preise & Katalog', ''], ['tracker', 'Tracker', 'Ausgaben, Wegwurf, Eiweiß und kcal'], ['backup', 'Backup', 'Export und Import'], ['info', 'Info & Quellen', '']];
+  const linkRows = ls => ls.map(([k, t, s]) => `<div class="list-link" data-act="go" data-r="more/${k}"><div><b>${t}</b>${s ? `<div class="muted">${s}</div>` : ''}</div><span class="muted">›</span></div>`).join('');
+  ET.views.more = () => ({ title: 'Mehr', sub: '', html: `<div class="card" style="padding:4px 16px">${linkRows(LINKS)}</div>
+    <details class="card" style="padding:12px 16px"><summary style="margin:0">Weiteres</summary><div style="margin-top:6px">${linkRows(MORE_LINKS)}</div></details>` });
 
   // ---------- Angebote ----------
   ET.views['more/offers'] = function () {
@@ -21,9 +21,9 @@
       : `<div class="card ${ok ? '' : 'warn'}"><b>Lidl-Angebote Woche ab ${esc(OFF.week)}</b><div class="muted">Stand ${esc(OFF.fetched)} · ${esc(OFF.source)}${ok ? '' : ' · <b>nicht für die geplante Woche (' + ET.targetWeek() + ')</b>'}</div></div>`;
     const rows = OFF.items.map(x => {
       const c = x.catalogId && item(x.catalogId), n = c && c.n ? `<div class="muted">pro ${c.unit === 'Stk' ? 'Stück' : '100 ' + c.unit}: ${Math.round(c.n[0])} kcal · ${c.n[1]} g Eiweiß</div>` : '';
-      return `<tr><td>${esc(x.name)}${x.catalogId ? ' <span class="ok">· im Plan nutzbar</span>' : ''}<div class="muted">${esc(x.info || '')}</div>${n}</td><td class="n"><b>${eur(x.price)}</b></td></tr>`;
+      return `<tr><td>${esc(x.name)}${x.catalogId ? ' <span class="ok">· im Plan nutzbar</span>' : ''}<div class="muted">${esc(x.info || '')}</div></td><td class="n"><b>${eur(x.price)}</b></td></tr>`;
     }).join('');
-    return { title: 'Angebote', html: head + (rows ? `<div class="card"><table>${rows}</table></div>` : '') + '<p class="muted">Nur vegetarische Lebensmittel. Artikel „im Plan nutzbar“ fließen mit dem Angebotspreis in Plan und Einkaufsliste ein. Nährwerte aller Produkte unter „Alle Produkte“.</p>' };
+    return { title: 'Angebote', html: head + (rows ? `<div class="card"><table>${rows}</table></div>` : '') + '' };
   };
 
   // ---------- Alle Produkte ----------
@@ -71,7 +71,7 @@
       (RL === 'all' || (RL === 'snack' ? r.type === 'snack' : RL === 'meal' ? r.type !== 'snack' : (r.tags || []).includes(RL))));
     return `<div class="muted">${rs.length} Rezepte</div><div class="card" style="padding:4px 14px">` + rs.map(r => {
       const fl = ET.recipeFlags(r), n = ET.portionN(r);
-      return `<div class="list-link" data-act="recView" data-id="${r.id}"><div><b>${esc(r.name)}</b>${r.custom ? ' <span class="badge">eigenes</span>' : ''}${r.type === 'snack' ? ' <span class="badge">Snack</span>' : ''}<div class="muted">${r.min} Min · ${Math.round(n[0])} kcal · ${Math.round(n[1])} g Eiweiß${fl.blocked ? ' · <span class="warn">Gerät fehlt</span>' : ''}${fl.warn ? ' · <span class="warn">⚠ ' + fl.aHit.concat(fl.dHit).map(esc).join(', ') + '</span>' : ''}</div></div><span class="muted">›</span></div>`;
+      return `<div class="list-link" data-act="recView" data-id="${r.id}"><div><b>${esc(r.name)}</b>${r.custom ? ' <span class="badge">eigenes</span>' : ''}${r.type === 'snack' ? ' <span class="badge">Snack</span>' : ''}<div class="muted">${r.min} Min · ${Math.round(n[1])} g Eiweiß${fl.blocked ? ' · <span class="warn">Gerät fehlt</span>' : ''}${fl.warn ? ' · <span class="warn">⚠ ' + fl.aHit.concat(fl.dHit).map(esc).join(', ') + '</span>' : ''}</div></div><span class="muted">›</span></div>`;
     }).join('') + '</div>';
   }
   ET.onInput(e => { if (e.target.id === 'rq') { RQ = e.target.value; document.getElementById('rlist').innerHTML = recList(RQ); } });
@@ -192,13 +192,11 @@
     const budget = S.settings.budget, maxH = Math.max(budget || 0, ...hist.map(h => h.total), 1);
     const byReason = {}; S.waste.forEach(w => { const k = w.reason || 'ohne Angabe'; byReason[k] = (byReason[k] || 0) + w.value; });
     const sorted = ET.allRecipes().filter(r => r.type !== 'snack').map(r => [r, ET.recipeCostPerPortion(r)]).sort((a, b) => a[1] - b[1]);
-    let html = `<div class="tiles"><div class="tile"><h3>Ausgaben gesamt</h3><b style="font-size:1.3rem">${eur(total)}</b></div><div class="tile"><h3>Ø pro Woche</h3><b style="font-size:1.3rem">${n ? eur(total / n) : '–'}</b></div>
-      <div class="tile"><h3>Weggeworfen</h3><b style="font-size:1.3rem">${eur(waste)}</b></div><div class="tile"><h3>Ø Kosten / Portion</h3><b style="font-size:1.3rem">${eaten.length ? eur(avgC) : '–'}</b></div>
-      <div class="tile"><h3>Ø Eiweiß / Tag</h3><b style="font-size:1.3rem">${nd ? Math.round(avgP) + ' g' : '–'}</b></div><div class="tile"><h3>Ø kcal / Tag</h3><b style="font-size:1.3rem">${nd ? Math.round(avgK) : '–'}</b></div></div>`;
+    let html = `<div class="tiles"><div class="tile"><h3>Ø pro Woche</h3><b style="font-size:1.3rem">${n ? eur(total / n) : '–'}</b></div>
+      <div class="tile"><h3>Ø Eiweiß / Tag</h3><b style="font-size:1.3rem">${nd ? Math.round(avgP) + ' g' : '–'}</b></div><div class="tile"><h3>Weggeworfen</h3><b style="font-size:1.3rem">${eur(waste)}</b></div></div>`;
     html += '<h2>Ausgaben pro Einkauf</h2><div class="card">' + (n ? hist.slice(-8).reverse().map(h => `<div style="margin:6px 0"><div class="row"><span>${h.date}</span><span>${h.items} Artikel · ${eur(h.total)}</span></div><div class="bar ${budget && h.total > budget ? 'over' : ''}"><i style="width:${h.total / maxH * 100}%"></i></div></div>`).join('') + (budget ? `<div class="muted">Wochenbudget ${eur(budget)}</div>` : '') : '<span class="muted">Noch keine Einkäufe verbucht.</span>') + '</div>';
     html += '<h2>Weggeworfenes</h2><div class="card">' + (S.waste.length ? Object.entries(byReason).map(([k, v]) => `<div class="row"><span>${esc(k)}</span><span>${eur(v)}</span></div>`).join('') : '<span class="muted">Nichts weggeworfen. 🌿</span>') + '</div>';
-    html += '<h2>Eiweiß &amp; kcal pro Tag</h2><div class="card">' + (nd ? logs.slice(-7).reverse().map(([d, l]) => `<div class="row"><span>${d}</span><span>${Math.round(l.n[0])} kcal · ${Math.round(l.n[1])} g Eiweiß</span></div>`).join('') : '<span class="muted">Noch keine abgehakten Mahlzeiten.</span>') + '</div>';
-    html += '<h2>Kosten pro Portion</h2><div class="card"><div class="muted">Günstigste</div>' + sorted.slice(0, 3).map(([r, c]) => `<div class="row"><span>${esc(r.name)}</span><span>${eur(c)}</span></div>`).join('') + '<div class="muted" style="margin-top:8px">Teuerste</div>' + sorted.slice(-3).reverse().map(([r, c]) => `<div class="row"><span>${esc(r.name)}</span><span>${eur(c)}</span></div>`).join('') + '</div>';
+    html += '<h2>Eiweiß pro Tag</h2><div class="card">' + (nd ? logs.slice(-7).reverse().map(([d, l]) => `<div class="row"><span>${d}</span><span>${Math.round(l.n[1])} g</span></div>`).join('') : '<span class="muted">Noch keine abgehakten Mahlzeiten.</span>') + '</div>';
     return { title: 'Tracker', html };
   };
 
@@ -209,14 +207,14 @@
       <label class="field">Eiweiß pro Tag (g)</label><input data-s="protein" type="number" min="0" value="${num(st.protein)}" placeholder="z. B. 100">
       <label class="field">Kalorien pro Tag (kcal)</label><input data-s="kcal" type="number" min="0" value="${num(st.kcal)}" placeholder="optional">
       <label class="field">Wochenbudget (€)</label><input data-s="budget" type="number" min="0" step="0.5" value="${num(st.budget)}" placeholder="optional"></div>
-      <div class="card"><h3>Küche</h3><div class="chips">${TOOLS.map(([k, l]) => `<label class="badge" style="padding:6px 12px"><input type="checkbox" data-s="tool:${k}" ${st.tools[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
-      <label class="field">Kochzeit-Limit unter der Woche (Min)</label><input data-s="maxMin" type="number" min="0" value="${num(st.maxMin)}" placeholder="kein Limit"></div>
-      <div class="card"><h3>Verträglichkeit</h3><div class="chips">${ALLERGENS.map(([k, l]) => `<label class="badge" style="padding:6px 12px"><input type="checkbox" data-s="allergen:${k}" ${st.allergens.includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}</div>
-      <label class="field">Zutaten, die ich nicht mag (mit Komma trennen)</label><input data-s="dislikes" value="${esc(st.dislikes.join(', '))}" placeholder="z. B. Pilze, Rosinen"></div>
-      <div class="card"><h3>Erinnerungen (Banner auf Home)</h3>
-      ${[['sun', 'Sonntag: Gerichte wählen'], ['expiring', 'Ablaufende Vorräte'], ['offers', 'Angebote veraltet oder neu']].map(([k, l]) => `<label style="display:block;padding:4px 0"><input type="checkbox" data-s="rem:${k}" ${st.rem[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
-      <div class="card"><h3>Darstellung</h3><select data-s="theme"><option value="auto" ${st.theme === 'auto' ? 'selected' : ''}>Wie das System</option><option value="light" ${st.theme === 'light' ? 'selected' : ''}>Hell</option><option value="dark" ${st.theme === 'dark' ? 'selected' : ''}>Dunkel</option></select></div>
-      <button data-act="setupAgain">Einrichtung erneut starten</button>`;
+      <details class="card"><summary style="margin:0">Küche, Verträglichkeit und Erinnerungen</summary><h3 style="margin-top:12px">Küche</h3><div class="chips">${TOOLS.map(([k, l]) => `<label class="badge" style="padding:6px 12px"><input type="checkbox" data-s="tool:${k}" ${st.tools[k] ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+      <label class="field">Kochzeit-Limit unter der Woche (Min)</label><input data-s="maxMin" type="number" min="0" value="${num(st.maxMin)}" placeholder="kein Limit">
+      <h3 style="margin-top:14px">Verträglichkeit</h3><div class="chips">${ALLERGENS.map(([k, l]) => `<label class="badge" style="padding:6px 12px"><input type="checkbox" data-s="allergen:${k}" ${st.allergens.includes(k) ? 'checked' : ''}> ${l}</label>`).join('')}</div>
+      <label class="field">Zutaten, die ich nicht mag (mit Komma trennen)</label><input data-s="dislikes" value="${esc(st.dislikes.join(', '))}" placeholder="z. B. Pilze, Rosinen">
+      <h3 style="margin-top:14px">Erinnerungen (Hinweis auf Home)</h3>
+      ${[['sun', 'Sonntag: Gerichte wählen'], ['expiring', 'Ablaufende Vorräte']].map(([k, l]) => `<label style="display:block;padding:4px 0"><input type="checkbox" data-s="rem:${k}" ${st.rem[k] ? 'checked' : ''}> ${l}</label>`).join('')}
+      <h3 style="margin-top:14px">Darstellung</h3><select data-s="theme"><option value="auto" ${st.theme === 'auto' ? 'selected' : ''}>Wie das System</option><option value="light" ${st.theme === 'light' ? 'selected' : ''}>Hell</option><option value="dark" ${st.theme === 'dark' ? 'selected' : ''}>Dunkel</option></select>
+      <button style="margin-top:14px" data-act="setupAgain">Einrichtung erneut starten</button></details>`;
     return { title: 'Einstellungen', html };
   };
   ET.onChange(e => {

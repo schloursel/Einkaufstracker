@@ -58,19 +58,24 @@
   ET.views.pantry = function () {
     const p = ET.ensurePlan(), today = ET.iso(ET.today()), soonIso = ET.iso(ET.addDays(ET.today(), 3));
     let html = `<div class="row" style="margin:6px 0"><button class="primary" data-act="padOpen">+ Hinzufügen</button><button class="${p.pantryChecked ? 'on' : ''}" data-act="pantryDone">${p.pantryChecked ? '✓ Vorrat geprüft' : 'Vorrat ist geprüft'}</button></div>`;
-    html += `<div class="card"><div class="row"><span>Kühlschrank</span>${fill('kuehl')}</div><div class="row" style="margin-top:6px"><span>Gefrierfach</span>${fill('gefrier')}</div><div class="muted" style="margin-top:6px">Füllstand von Hand einstellen (1 leer bis 5 voll).</div></div>`;
     const all = Object.entries(S.pantry).filter(([, q]) => q.amount > 0);
+    const urgent = all.filter(([, q]) => q.exp && q.exp <= soonIso).sort((x, y) => x[1].exp.localeCompare(y[1].exp));
+    if (urgent.length) html += '<div class="card"><h3>Zuerst verbrauchen</h3>' + urgent.map(([id, q]) => {
+      const days = Math.round((ET.parseIso(q.exp) - ET.today()) / 864e5);
+      return `<div class="row nowrap" style="padding:4px 0" data-act="itemOpen" data-id="${esc(id)}"><span>${esc(item(id).name)}</span><span class="${days < 0 ? 'bad' : 'warn'}">${days < 0 ? 'abgelaufen' : days === 0 ? 'heute' : days === 1 ? 'morgen' : 'in ' + days + ' Tagen'}</span></div>`;
+    }).join('') + '</div>';
     if (!all.length) html += '<div class="card">Vorrat ist leer. Nach dem Einkauf füllt er sich automatisch, oder du fügst oben etwas hinzu.</div>';
     LOC.forEach(([loc, label]) => {
       const rows = all.filter(([id]) => ET.storageOf(id) === loc).sort((a, b) => (a[1].exp || '').localeCompare(b[1].exp || ''));
       if (!rows.length) return;
       html += `<h2>${label}</h2><div class="card" style="padding:4px 14px"><table>` + rows.map(([id, q]) => {
-        const c = item(id), soon = q.exp && q.exp <= soonIso, step = Math.max(1, Math.round(c.pack / 4));
-        return `<tr><td><span data-act="itemOpen" data-id="${esc(id)}" style="cursor:pointer">${esc(c.name)}</span><div class="muted ${soon ? 'warn' : ''}">${q.exp ? (q.exp < today ? 'abgelaufen' : soon ? 'bald ablaufend' : 'haltbar bis') + ' ' + q.exp : ''}${S.minStock[id] > 0 ? ' · Mindest ' + S.minStock[id] + ' ' + c.unit : ''}</div></td>
+        const c = item(id), step = Math.max(1, Math.round(c.pack / 4));
+        return `<tr><td><span data-act="itemOpen" data-id="${esc(id)}" style="cursor:pointer">${esc(c.name)}</span></td>
           <td class="n"><b>${r1(q.amount)} ${c.unit}</b></td>
           <td style="white-space:nowrap"><button class="small" data-act="adj" data-id="${esc(id)}" data-d="${-step}">−</button> <button class="small" data-act="adj" data-id="${esc(id)}" data-d="${step}">+</button></td></tr>`;
       }).join('') + '</table></div>';
     });
+    html += `<details class="card"><summary style="margin:0">Füllstand Kühlschrank und Gefrierfach</summary><div class="row" style="margin-top:8px"><span>Kühlschrank</span>${fill('kuehl')}</div><div class="row" style="margin-top:6px"><span>Gefrierfach</span>${fill('gefrier')}</div></details>`;
     return { title: 'Vorrat', sub: '', html };
   };
   A.fill = t => { const loc = t.dataset.loc, v = +t.dataset.v; S.fill[loc] = S.fill[loc] === v ? 0 : v; ET.save(); ET.render(); };
