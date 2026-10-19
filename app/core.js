@@ -194,6 +194,21 @@
     }
     return list;
   }
+  // Prognose: was bleibt nach der geplanten Woche übrig (Vorrat + Einkauf - Verbrauch), was geht leer, was läuft vorher ab
+  ET.afterWeek = function () {
+    const picks = entries(), buy = {}, use = {};
+    shoppingFor(picks).forEach(x => { buy[x.id] = x.amount; });
+    picks.forEach(e => { for (const [id, a] of Object.entries(ET.rec(e.id).ing)) use[id] = (use[id] || 0) + a * e.f; });
+    const shakesLeft = Math.max(0, SHAKE.days - (S.plan ? S.plan.shake.filter(Boolean).length : 0));
+    for (const [id, a] of Object.entries(SHAKE.ing)) use[id] = (use[id] || 0) + a * shakesLeft;
+    const ids = [...new Set(Object.keys(S.pantry).filter(id => pantryAmt(id) > 0).concat(Object.keys(use), Object.keys(buy)))];
+    const end = iso(addDays(ET.planMonday(), 6));
+    return ids.map(id => {
+      const c = item(id), have = pantryAmt(id), bought = buy[id] || 0, u = use[id] || 0, left = have + bought - u;
+      const exp = (have > 0 && S.pantry[id].exp) || iso(addDays(today(), c.shelf));
+      return { id, c, have, bought, use: u, left: left < c.pack * 0.005 ? 0 : left, exp, soon: left > 0 && exp <= end };
+    }).filter(x => x.have > 0 || x.use > 0 || x.bought > 0);
+  };
   const listCost = l => l.reduce((s, x) => s + x.cost, 0);
   const savings = l => l.reduce((s, x) => s + (isOffer(x.id) ? Math.max(0, normalPrice(x.id) - price(x.id)) * x.packs : 0), 0);
   Object.assign(ET, { need, pantryAmt, shoppingFor, listCost, savings });
