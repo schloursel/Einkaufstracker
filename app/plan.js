@@ -65,13 +65,15 @@
   };
 
   // ---------- Auswahl-Sheet ----------
-  const CS = { i: 0, k: 'a', q: '', quick: false, easy: false, protein: false, cheap: false, budget: false, all: false };
-  A.choose = t => { Object.assign(CS, { i: +t.dataset.i, k: t.dataset.k, q: '', quick: false, easy: false, protein: false, cheap: false, budget: false, all: false }); ET.sheet.open(CS.k === 's' ? 'Snack wählen' : 'Gericht wählen', chooseHtml); };
+  const CS = { i: 0, k: 'a', q: '', ings: [], quick: false, easy: false, protein: false, cheap: false, budget: false, all: false };
+  A.choose = t => { Object.assign(CS, { i: +t.dataset.i, k: t.dataset.k, q: '', ings: [], quick: false, easy: false, protein: false, cheap: false, budget: false, all: false }); ET.sheet.open(CS.k === 's' ? 'Snack wählen' : 'Gericht wählen', chooseHtml); };
   A.chip = t => { CS[t.dataset.f] = !CS[t.dataset.f]; ET.sheet.refresh(); };
   function cards() {
-    const list = ET.suggestions({ type: CS.k === 's' ? 'snack' : 'meal', q: CS.q, quick: CS.quick, easy: CS.easy, protein: CS.protein, cheap: CS.cheap, budget: CS.budget, showAll: CS.all });
+    const list = ET.suggestions({ type: CS.k === 's' ? 'snack' : 'meal', q: CS.q, ings: CS.ings, quick: CS.quick, easy: CS.easy, protein: CS.protein, cheap: CS.cheap, budget: CS.budget, showAll: CS.all });
+    const total = list.length, full = list.fullCount; if (total > 30) list.length = 30;
     if (!list.length) return '<div class="muted" style="padding:14px 0">Keine passenden Gerichte. Filter lockern' + (S.settings.maxMin && !CS.all ? ' oder „Zeitlimit ignorieren“ antippen.' : '.') + '</div>';
-    return list.map(s => {
+    const note = (full != null && full < total ? `<div class="muted" style="padding:6px 0">${full ? full + ' Gericht' + (full > 1 ? 'e' : '') + ' mit allen Zutaten, danach Gerichte mit einer davon.' : 'Nichts mit allen Zutaten. Das sind Gerichte mit einer davon.'}</div>` : '') + (total > 30 ? `<div class="muted" style="padding:6px 0">${total} Treffer, die besten 30. Mit einer weiteren Zutat grenzt du ein.</div>` : '');
+    return note + list.map(s => {
       const warn = s.fl.aHit.map(a => '⚠ ' + a).concat(s.fl.dHit.map(d => '⚠ ' + esc(d)));
       return `<div class="card" style="margin:8px 0"><div class="row nowrap"><div style="flex:1;min-width:0"><b>${esc(s.r.name)}</b>${s.r.custom ? ' <span class="badge">eigenes</span>' : ''}
         <div class="muted">${s.r.min} Min${(s.r.tags || []).includes('einfach') ? ' · einfach' : ''}${(s.r.tags || []).includes('dip') ? ' · Dip' : ''}${(s.r.tags || []).includes('eintopf') ? ' · Ein-Topf' : ''}${warn.length ? ' · <span class="warn">' + warn.join(', ') + '</span>' : ''}</div></div>
@@ -81,13 +83,32 @@
         <div class="muted">Zutaten (${ET.serv(s.r)} Portion${ET.serv(s.r) > 1 ? 'en' : ''}): ${Object.entries(s.r.ing).map(([id, a]) => esc(item(id).name) + ' ' + Math.round(a * 10) / 10 + ' ' + item(id).unit).join(', ')}</div></details></div>`;
     }).join('');
   }
+  const QUICK = ['Tofu', 'Linsen', 'Kichererbsen', 'Bohnen', 'Eier', 'Feta', 'Halloumi', 'Mozzarella', 'Quark', 'Nudeln', 'Reis', 'Kartoffel', 'Spinat', 'Brokkoli', 'Pilze', 'Tomate'];
+  const MORE = ['Süßkartoffel', 'Zucchini', 'Paprika', 'Aubergine', 'Kürbis', 'Blumenkohl', 'Kohl', 'Avocado', 'Rote Bete', 'Hummus', 'Pesto', 'Kokosmilch', 'Wraps', 'Couscous', 'Quinoa', 'Gnocchi', 'Ziegenkäse', 'Sojaschnetzel', 'Seitan', 'Haferflocken', 'Beeren', 'Banane', 'Nüsse'];
+  const termChip = t => ET.ui.chip(t, CS.ings.some(x => x.toLowerCase() === t.toLowerCase()), 'ingToggle', `data-t="${esc(t)}"`);
   function chooseHtml() {
     const d = S.plan.days[CS.i], left = ET.budgetLeft();
+    const custom = CS.ings.filter(t => ![...QUICK, ...MORE].some(x => x.toLowerCase() === t.toLowerCase()));
     return `<div class="muted">${ET.WEEKDAYS[CS.i]} · ${slotLabel(d, CS.k)}</div>
-      <input id="cq" type="search" placeholder="Name oder Zutat suchen" value="${esc(CS.q)}" style="margin:8px 0">
-      <div class="chips">${ET.ui.chip('schnell ≤20 Min', CS.quick, 'chip', 'data-f="quick"')}${ET.ui.chip('einfach', CS.easy, 'chip', 'data-f="easy"')}${ET.ui.chip('eiweißreich', CS.protein, 'chip', 'data-f="protein"')}${ET.ui.chip('günstig / Angebot', CS.cheap, 'chip', 'data-f="cheap"')}${left != null ? ET.ui.chip('passt ins Budget', CS.budget, 'chip', 'data-f="budget"') : ''}${S.settings.maxMin ? ET.ui.chip('Zeitlimit ignorieren', CS.all, 'chip', 'data-f="all"') : ''}</div>
+      <h3 style="margin:10px 0 2px">Worauf hast du Lust?</h3><div class="muted">Eine oder zwei Zutaten antippen, dann kommen passende Gerichte.</div>
+      <div class="chips">${custom.concat(QUICK).map(termChip).join('')}</div>
+      <details><summary>Mehr Zutaten</summary><div class="chips">${MORE.map(termChip).join('')}</div></details>
+      <input id="cq" type="search" enterkeyhint="done" placeholder="Andere Zutat tippen, Enter" value="${esc(CS.q)}" style="margin:8px 0">
+      <details><summary>Filter</summary><div class="chips">${ET.ui.chip('schnell ≤20 Min', CS.quick, 'chip', 'data-f="quick"')}${ET.ui.chip('einfach', CS.easy, 'chip', 'data-f="easy"')}${ET.ui.chip('eiweißreich', CS.protein, 'chip', 'data-f="protein"')}${ET.ui.chip('günstig / Angebot', CS.cheap, 'chip', 'data-f="cheap"')}${left != null ? ET.ui.chip('passt ins Budget', CS.budget, 'chip', 'data-f="budget"') : ''}${S.settings.maxMin ? ET.ui.chip('Zeitlimit ignorieren', CS.all, 'chip', 'data-f="all"') : ''}</div></details>
       <div id="clist">${cards()}</div>`;
   }
+  A.ingToggle = t => {
+    const v = t.dataset.t, i = CS.ings.findIndex(x => x.toLowerCase() === v.toLowerCase());
+    if (i >= 0) CS.ings.splice(i, 1); else CS.ings.push(v);
+    ET.sheet.refresh();
+  };
+  document.addEventListener('keydown', e => {
+    if (e.target.id !== 'cq' || e.key !== 'Enter') return;
+    const v = e.target.value.trim(); if (!v) return;
+    if (!ET.ingIds(v).length) { e.target.value = ''; CS.q = v; document.getElementById('clist').innerHTML = cards(); return; }
+    if (!CS.ings.some(x => x.toLowerCase() === v.toLowerCase())) CS.ings.push(v);
+    CS.q = ''; ET.sheet.refresh();
+  });
   ET.onInput(e => { if (e.target.id === 'cq') { CS.q = e.target.value; document.getElementById('clist').innerHTML = cards(); } });
   A.pickRecipe = t => {
     const d = S.plan.days[CS.i]; d[CS.k] = t.dataset.id; S.plan.bought = false; ET.save(); ET.sheet.close(); ET.selDay = CS.i; ET.render();

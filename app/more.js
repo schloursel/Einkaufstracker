@@ -67,7 +67,7 @@
   };
   function recList(q) {
     const t = ET.normS(q);
-    const rs = ET.allRecipes().filter(r => (!t || ET.normS(r.name).includes(t)) &&
+    const rs = ET.allRecipes().filter(r => (!t || ET.normS(r.name).includes(t) || Object.keys(r.ing).some(id => ET.normS(item(id).name).includes(t))) &&
       (RL === 'all' || (RL === 'snack' ? r.type === 'snack' : RL === 'meal' ? r.type !== 'snack' : (r.tags || []).includes(RL))));
     return `<div class="muted">${rs.length} Rezepte</div><div class="card" style="padding:4px 14px">` + rs.map(r => {
       const fl = ET.recipeFlags(r), n = ET.portionN(r);

@@ -201,6 +201,17 @@
   ET.budgetLeft = () => (S.settings.budget ? S.settings.budget - ET.weekCost() : null);
 
   // ---------- Vorschläge ----------
+  // Zutaten-Suche: ein Begriff (z. B. "Käse", "Tomate", "Pilze") steht für mehrere Katalogartikel
+  const SYN = { ei: ['eier'], eier: ['eier'], pilze: ['champignons'], pilz: ['champignons'], nusse: ['mandeln', 'walnuss', 'cashew', 'erdnussmus'], nuss: ['mandeln', 'walnuss', 'cashew', 'erdnussmus'],
+    kase: ['feta', 'mozzarella', 'halloumi', 'gouda', 'parmesan', 'ricotta', 'camembert', 'ziegenkaese', 'reibekaese', 'frischkaese', 'huettenk'], bohnen: ['kidney', 'sbohnen', 'wbohnen'], linsen: ['linsen', 'tellerlinsen', 'linsendose'],
+    nudeln: ['nudeln', 'tortelloni', 'gnocchi', 'spaetzle', 'lasagne', 'reisnudeln'], pasta: ['nudeln', 'tortelloni', 'gnocchi', 'spaetzle', 'lasagne'], kartoffel: ['kartoffeln', 'suesskart', 'pommes'], kartoffeln: ['kartoffeln', 'suesskart', 'pommes'],
+    quark: ['quark', 'skyr', 'huettenk'], joghurt: ['joghurt', 'griechjoghurt', 'sojajoghurt', 'skyr'], kohl: ['weisskohl', 'rotkohl', 'blumenkohl', 'brokkoli', 'rosenkohl'], reis: ['reis'], brot: ['brot', 'toast', 'baguette', 'pita', 'knaecke'],
+    tofu: ['tofu', 'raeuchertofu'], hafer: ['haferflocken', 'hafermilch'], beeren: ['beeren'], obst: ['aepfel', 'banane', 'beeren', 'mango', 'orangen', 'aprikosen'], gemuse: ['tkgemuese', 'zucchini', 'paprika', 'karotten', 'brokkoli', 'tomaten', 'gurke'] };
+  ET.ingIds = term => {
+    const t = normS(term).trim(); if (!t) return [];
+    if (SYN[t]) return SYN[t].filter(id => CATALOG.some(c => c.id === id));
+    return CATALOG.filter(c => normS(c.name).includes(t)).map(c => c.id);
+  };
   ET.suggestions = function (opts = {}) {
     const picks = entries(), base = listCost(shoppingFor(picks)), q = normS(opts.q || '');
     const left = ET.budgetLeft();
@@ -211,6 +222,16 @@
     }).filter(x => !x.fl.blocked);
     if (S.settings.maxMin && !wantSnack && opts.respectTime !== false) out = out.filter(x => x.r.min <= S.settings.maxMin || opts.showAll);
     if (q) out = out.filter(x => normS(x.r.name).includes(q) || Object.keys(x.r.ing).some(id => normS(item(id).name).includes(q)));
+    const ings = (opts.ings || []).map(t => ET.ingIds(t));
+    if (ings.length) {
+      out.forEach(x => { x.hits = ings.filter(ids => ids.some(id => id in x.r.ing)).length; });
+      const all = out.filter(x => x.hits === ings.length);
+      // Wenige Treffer mit allen Zutaten: Gerichte mit nur einer der Zutaten folgen danach
+      out = all.length >= 5 || ings.length < 2 ? all : out.filter(x => x.hits > 0);
+      out.sort((a, b) => b.hits - a.hits || a.score - b.score);
+      out.fullCount = out.filter(x => x.hits === ings.length).length;
+      return out;
+    }
     if (opts.quick) out = out.filter(x => x.r.min <= 20);
     if (opts.easy) out = out.filter(x => (x.r.tags || []).includes('einfach'));
     if (opts.protein) out = out.filter(x => x.n[1] >= (wantSnack ? 15 : 30));

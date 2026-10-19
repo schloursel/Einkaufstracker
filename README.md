@@ -5,11 +5,12 @@ Statische Web-App ohne Backend und ohne Build: Wochenplan, Einkaufsliste und Vor
 ## Aufbau
 - `index.html` (Gerüst, Design), `app/` (Kern, UI, Home, Plan, Einkauf/Vorrat, Mehr, Start)
 - `data.js`: Grundkatalog, erste 20 Rezepte, Shake, Nährwerte, Lagerorte, Geräte
-- `data-more.js`: weitere Katalogartikel (insgesamt ca. 80) und Rezepte (insgesamt 88: 73 Gerichte, 15 Snacks mit Tags einfach / Dip / Ein-Topf)
+- `data-more.js`: weitere Katalogartikel und Rezepte (Tags einfach / Dip / Ein-Topf)
+- `data-recipes.js`: noch mehr Katalogartikel und Rezepte (insgesamt ca. 126 Artikel und ca. 295 Rezepte, davon ca. 65 Snacks)
 - `offers.js`, `products.js`, `nutrition.js`: Daten, automatisch erzeugt (siehe unten)
 - `manifest.webmanifest`, `sw.js`, `icons/`: Installation als App und Offline-Betrieb
 
-Untere Leiste: Home · Plan · Einkauf · Vorrat · Mehr. Mehr enthält Angebote, Alle Produkte, Gerichte & eigene Rezepte, Preise & Katalog, Tracker, Einstellungen, Backup, Info.
+Untere Leiste: Home · Plan · Einkauf · Vorrat · Mehr. Mehr enthält Angebote, Alle Produkte, Gerichte & eigene Rezepte, Preise & Katalog, Tracker, Einstellungen, Backup, Info. Beim Gericht wählen tippst du ein, zwei Zutaten an und bekommst passende Vorschläge.
 
 ## Auf GitHub veröffentlichen
 1. Neues Repository anlegen und diesen Ordner hochladen (ohne `.claude`).
