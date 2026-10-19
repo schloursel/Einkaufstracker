@@ -23,6 +23,7 @@
     if (ET.filled() < ET.slotCount()) html += '<div class="banner"><span>Der Plan ist noch nicht komplett, die Liste enthält bisher Shake und Mindestbestände.</span><button class="small" data-act="go" data-r="plan">Zum Plan</button></div>';
     if (!list.length) html += '<div class="card ok">Alles im Vorrat vorhanden.</div>';
 
+    html += afterWeekHtml(true);
     const row = (x, big) => {
       const c = item(x.id), have = ET.pantryAmt(x.id), on = !!p.checked[x.id], min = S.minStock[x.id] > 0;
       const name = `${x.packs}× ${esc(c.name)}`, tags = `${ET.isOffer(x.id) ? ' <b class="ok">· Angebot</b>' : ''}${c.packUnsure ? ' <span class="badge warn">Packung unklar</span>' : ''}`;
@@ -43,6 +44,7 @@
       if (done.length) html += `<h2>Im Wagen (${done.length})</h2><div class="card" style="padding:4px 14px">${done.map(x => row(x, true)).join('')}</div>`;
     }
     const nChecked = list.filter(x => p.checked[x.id]).length;
+    html += '<div style="margin:12px 0"><button class="small" data-act="padOpen">+ Zusätzlich gekauft (zum Vorrat)</button></div>';
     html += p.bought ? '<p class="ok">✓ Als eingekauft verbucht (Vorrat und Ausgaben aktualisiert).</p>'
       : (list.length ? `<button class="primary block" data-act="bought">${nChecked ? nChecked + ' abgehakte Artikel' : 'Alles'} als eingekauft buchen</button>` : '');
     return { title: 'Einkauf', sub: 'Montag ' + p.week.split('-').reverse().join('.'), html };
@@ -55,6 +57,21 @@
   // ---------- Vorrat ----------
   const LOC = [['kuehl', 'Kühlschrank'], ['gefrier', 'Gefrierfach'], ['vorrat', 'Vorratsschrank']];
   const fill = loc => `<span class="fill">${[1, 2, 3, 4, 5].map(v => `<i class="${v <= S.fill[loc] ? 'on' : ''}" data-act="fill" data-loc="${loc}" data-v="${v}" title="Füllstand ${v}/5"></i>`).join('')}</span>`;
+  const fmtQ = (n, c) => r1(n) + ' ' + c.unit;
+  const fmtD = d => d.split('-').reverse().slice(0, 2).join('.') + '.';
+  function afterWeekHtml(compact) {
+    const rows = ET.afterWeek(); if (!rows.length) return '';
+    const empty = rows.filter(x => x.left === 0 && x.use > 0);
+    const rest = rows.filter(x => x.left > 0), spoilIds = new Set(rest.filter(x => x.soon).map(x => x.id));
+    const sum = `${empty.length} gehen leer · ${rest.length} bleiben übrig${ET.filled() < ET.slotCount() ? ' (Plan noch nicht komplett)' : ''}`;
+    let h = compact ? `<details class="card"><summary style="margin:0"><b>Nach der Woche</b> · ${sum}</summary>` : `<div class="card"><h3>Nach der Woche</h3><div class="muted">${sum}</div>`;
+    if (empty.length) h += `<div style="margin-top:10px"><b>Geht leer</b><div class="muted">${empty.map(x => esc(x.c.name)).join(', ')}</div></div>`;
+    if (spoilIds.size) h += `<div style="margin-top:10px"><b class="warn">Läuft ab, bleibt aber übrig</b>${rest.filter(x => spoilIds.has(x.id)).map(x => `<div class="row nowrap" style="padding:3px 0"><span>${esc(x.c.name)}</span><span class="warn" style="flex:none">${fmtQ(x.left, x.c)} · bis ${fmtD(x.exp)}</span></div>`).join('')}</div>`;
+    const others = rest.filter(x => !spoilIds.has(x.id)).sort((a, b) => a.c.name.localeCompare(b.c.name, 'de'));
+    if (others.length) h += `<details><summary>Bleibt übrig (${others.length})</summary><table>${others.map(x => `<tr><td>${esc(x.c.name)}</td><td class="n"><b>${fmtQ(x.left, x.c)}</b></td></tr>`).join('')}</table></details>`;
+    h += '<button class="block" style="margin-top:12px" data-act="reuseOpen">Gerichte für die Reste vorschlagen</button>';
+    return h + (compact ? '</details>' : '</div>');
+  }
   ET.views.pantry = function () {
     const p = ET.ensurePlan(), today = ET.iso(ET.today()), soonIso = ET.iso(ET.addDays(ET.today(), 3));
     let html = `<div class="row" style="margin:6px 0"><button class="primary" data-act="padOpen">+ Hinzufügen</button><button class="${p.pantryChecked ? 'on' : ''}" data-act="pantryDone">${p.pantryChecked ? '✓ Vorrat geprüft' : 'Vorrat ist geprüft'}</button></div>`;
@@ -64,6 +81,7 @@
       const days = Math.round((ET.parseIso(q.exp) - ET.today()) / 864e5);
       return `<div class="row nowrap" style="padding:4px 0" data-act="itemOpen" data-id="${esc(id)}"><span>${esc(item(id).name)}</span><span class="${days < 0 ? 'bad' : 'warn'}">${days < 0 ? 'abgelaufen' : days === 0 ? 'heute' : days === 1 ? 'morgen' : 'in ' + days + ' Tagen'}</span></div>`;
     }).join('') + '</div>';
+    html += afterWeekHtml();
     if (!all.length) html += '<div class="card">Vorrat ist leer. Nach dem Einkauf füllt er sich automatisch, oder du fügst oben etwas hinzu.</div>';
     LOC.forEach(([loc, label]) => {
       const rows = all.filter(([id]) => ET.storageOf(id) === loc).sort((a, b) => (a[1].exp || '').localeCompare(b[1].exp || ''));

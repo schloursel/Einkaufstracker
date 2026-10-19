@@ -17,6 +17,8 @@
     const cost = ET.weekCost(), budget = S.settings.budget;
     let html = `<div class="strip">${ET.WEEKDAYS.map((n, i) => `<button class="${i === sel ? 'sel' : ''} ${i === td ? 'today' : ''}" data-act="selDay" data-day="${i}" data-i="${i}">${SHORT[i]}<br><span class="dot ${i < 4 && !p.days[i].a ? '' : (i === 4 ? 'full' : 'plan')}" style="${i === sel ? 'background:var(--accent-t);opacity:.7' : ''}"></span></button>`).join('')}</div>`;
     html += `<div class="row" style="margin:6px 0"><span class="muted">Einkauf ≈ <b>${eur(cost)}</b></span><button class="small" data-act="autoPick">Beste 4 automatisch</button></div>`;
+    const wst = ET.planWaste();
+    if (wst.items.length) html += `<div class="muted" style="margin:2px 0" data-act="go" data-r="pantry">Reste am Ende ≈ <b>${eur(wst.value)}</b>: ${esc(wst.items.slice(0, 3).map(x => x.name.replace(/ \d.*$| \(.*$/, '')).join(', '))}${wst.items.length > 3 ? ' …' : ''} ›</div>`;
     if (budget && cost > budget) html += `<div class="bad" style="margin:2px 0">${eur(cost - budget)} über dem Wochenbudget</div>`;
 
     const day = p.days[sel], sn = ET.shakeN();
@@ -65,18 +67,24 @@
   };
 
   // ---------- Auswahl-Sheet ----------
-  const CS = { i: 0, k: 'a', q: '', ings: [], quick: false, easy: false, protein: false, cheap: false, budget: false, all: false };
-  A.choose = t => { Object.assign(CS, { i: +t.dataset.i, k: t.dataset.k, q: '', ings: [], quick: false, easy: false, protein: false, cheap: false, budget: false, all: false }); ET.sheet.open(CS.k === 's' ? 'Snack wählen' : 'Gericht wählen', chooseHtml); };
+  const CS = { i: 0, k: 'a', q: '', ings: [], reuse: false, cart: false, quick: false, easy: false, protein: false, cheap: false, budget: false, all: false };
+  A.choose = t => { Object.assign(CS, { i: +t.dataset.i, k: t.dataset.k, q: '', ings: [], reuse: false, cart: false, quick: false, easy: false, protein: false, cheap: false, budget: false, all: false }); ET.sheet.open(CS.k === 's' ? 'Snack wählen' : 'Gericht wählen', chooseHtml); };
+  A.reuseOpen = () => {
+    const days = S.plan.days; let i = days.findIndex(d => !d.a), k = 'a';
+    if (i < 0) { i = days.findIndex(d => d.mode === 'split' && !d.b); k = 'b'; }
+    if (i < 0) return ET.sheet.open('Reste verbrauchen', () => '<p>Alle Plätze im Plan sind belegt. Nimm im Plan ein Gericht heraus, dann schlage ich Gerichte für deine Reste vor.</p>');
+    A.choose({ dataset: { i, k } }); CS.reuse = true; ET.sheet.refresh();
+  };
   A.chip = t => { CS[t.dataset.f] = !CS[t.dataset.f]; ET.sheet.refresh(); };
   function cards() {
-    const list = ET.suggestions({ type: CS.k === 's' ? 'snack' : 'meal', q: CS.q, ings: CS.ings, quick: CS.quick, easy: CS.easy, protein: CS.protein, cheap: CS.cheap, budget: CS.budget, showAll: CS.all });
+    const list = ET.suggestions({ type: CS.k === 's' ? 'snack' : 'meal', q: CS.q, ings: CS.ings, reuse: CS.reuse, cartOnly: CS.cart, quick: CS.quick, easy: CS.easy, protein: CS.protein, cheap: CS.cheap, budget: CS.budget, showAll: CS.all });
     const total = list.length, full = list.fullCount; if (total > 30) list.length = 30;
     if (!list.length) return '<div class="muted" style="padding:14px 0">Keine passenden Gerichte. Filter lockern' + (S.settings.maxMin && !CS.all ? ' oder „Zeitlimit ignorieren“ antippen.' : '.') + '</div>';
     const note = (full != null && full < total ? `<div class="muted" style="padding:6px 0">${full ? full + ' Gericht' + (full > 1 ? 'e' : '') + ' mit allen Zutaten, danach Gerichte mit einer davon.' : 'Nichts mit allen Zutaten. Das sind Gerichte mit einer davon.'}</div>` : '') + (total > 30 ? `<div class="muted" style="padding:6px 0">${total} Treffer, die besten 30. Mit einer weiteren Zutat grenzt du ein.</div>` : '');
     return note + list.map(s => {
       const warn = s.fl.aHit.map(a => '⚠ ' + a).concat(s.fl.dHit.map(d => '⚠ ' + esc(d)));
       return `<div class="card" style="margin:8px 0"><div class="row nowrap"><div style="flex:1;min-width:0"><b>${esc(s.r.name)}</b>${s.r.custom ? ' <span class="badge">eigenes</span>' : ''}
-        <div class="muted">${s.r.min} Min${(s.r.tags || []).includes('einfach') ? ' · einfach' : ''}${(s.r.tags || []).includes('dip') ? ' · Dip' : ''}${(s.r.tags || []).includes('eintopf') ? ' · Ein-Topf' : ''}${warn.length ? ' · <span class="warn">' + warn.join(', ') + '</span>' : ''}</div></div>
+        ${s.wasteD < 0.3 ? '<div class="ok" style="font-size:.9rem">Wenig Reste</div>' : s.leftNames.length ? `<div class="warn" style="font-size:.9rem">Reste: ${esc(s.leftNames.slice(0, 3).join(', '))} (≈ ${eur(s.wasteD)})</div>` : ''}${s.expNames.length && !(s.reuseNames && s.reuseNames.length) ? `<div class="ok" style="font-size:.9rem">Verbraucht bald Ablaufendes: ${esc(s.expNames.slice(0, 3).join(', '))}</div>` : ''}${s.reuseNames && s.reuseNames.length ? `<div class="ok" style="font-size:.9rem">Verbraucht: ${esc(s.reuseNames.slice(0, 4).join(', '))}</div>` : ''}<div class="muted">${s.r.min} Min${(s.r.tags || []).includes('einfach') ? ' · einfach' : ''}${(s.r.tags || []).includes('dip') ? ' · Dip' : ''}${(s.r.tags || []).includes('eintopf') ? ' · Ein-Topf' : ''}${warn.length ? ' · <span class="warn">' + warn.join(', ') + '</span>' : ''}</div></div>
         <button class="small primary" data-act="pickRecipe" data-id="${s.r.id}">wählen</button></div>
         <details><summary>Details</summary><div class="muted">Pro Portion: ${fmtN(s.n)}</div>
         <div class="muted">≈ ${eur(s.per)} Zusatzkosten je Portion${s.offer ? ' · <b class="ok">' + s.offer + ' Zutat(en) im Angebot</b>' : ''}${s.stock ? ' · ' + s.stock + ' Zutat(en) im Vorrat' : ''}</div>
@@ -90,6 +98,7 @@
     const d = S.plan.days[CS.i], left = ET.budgetLeft();
     const custom = CS.ings.filter(t => ![...QUICK, ...MORE].some(x => x.toLowerCase() === t.toLowerCase()));
     return `<div class="muted">${ET.WEEKDAYS[CS.i]} · ${slotLabel(d, CS.k)}</div>
+      <div class="chips">${ET.ui.chip('Reste verbrauchen', CS.reuse, 'chip', 'data-f="reuse"')}${CS.reuse && S.plan.checked && Object.values(S.plan.checked).some(Boolean) && !S.plan.bought ? ET.ui.chip('nur was im Wagen ist', CS.cart, 'chip', 'data-f="cart"') : ''}</div>
       <h3 style="margin:10px 0 2px">Worauf hast du Lust?</h3><div class="muted">Eine oder zwei Zutaten antippen, dann kommen passende Gerichte.</div>
       <div class="chips">${custom.concat(QUICK).map(termChip).join('')}</div>
       <details><summary>Mehr Zutaten</summary><div class="chips">${MORE.map(termChip).join('')}</div></details>

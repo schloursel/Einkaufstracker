@@ -194,6 +194,21 @@
     }
     return list;
   }
+  // Prognose: was bleibt nach der geplanten Woche übrig (Vorrat + Einkauf - Verbrauch), was geht leer, was läuft vorher ab
+  ET.afterWeek = function (opts = {}) {
+    const picks = entries(), buy = {}, use = {}, cartOnly = opts.cartOnly && S.plan && !S.plan.bought;   // cartOnly: nur Artikel zählen, die schon im Wagen sind
+    shoppingFor(picks).forEach(x => { buy[x.id] = cartOnly && !S.plan.checked[x.id] ? 0 : x.amount; });
+    picks.forEach(e => { for (const [id, a] of Object.entries(ET.rec(e.id).ing)) use[id] = (use[id] || 0) + a * e.f; });
+    const shakesLeft = Math.max(0, SHAKE.days - (S.plan ? S.plan.shake.filter(Boolean).length : 0));
+    for (const [id, a] of Object.entries(SHAKE.ing)) use[id] = (use[id] || 0) + a * shakesLeft;
+    const ids = [...new Set(Object.keys(S.pantry).filter(id => pantryAmt(id) > 0).concat(Object.keys(use), Object.keys(buy)))];
+    const end = iso(addDays(ET.planMonday(), 6));
+    return ids.map(id => {
+      const c = item(id), have = pantryAmt(id), bought = buy[id] || 0, u = use[id] || 0, left = have + bought - u;
+      const exp = (have > 0 && S.pantry[id].exp) || iso(addDays(today(), c.shelf));
+      return { id, c, have, bought, use: u, left: left < c.pack * 0.005 ? 0 : left, exp, soon: left > 0 && exp <= end };
+    }).filter(x => x.have > 0 || x.use > 0 || x.bought > 0);
+  };
   const listCost = l => l.reduce((s, x) => s + x.cost, 0);
   const savings = l => l.reduce((s, x) => s + (isOffer(x.id) ? Math.max(0, normalPrice(x.id) - price(x.id)) * x.packs : 0), 0);
   Object.assign(ET, { need, pantryAmt, shoppingFor, listCost, savings });
@@ -212,23 +227,67 @@
     if (SYN[t]) return SYN[t].filter(id => CATALOG.some(c => c.id === id));
     return CATALOG.filter(c => normS(c.name).includes(t)).map(c => c.id);
   };
+  // Verbrauch der Einträge (Gerichte + noch offene Shakes), ohne Mindestbestand
+  function usageOf(picks) {
+    const use = {};
+    picks.forEach(e => { for (const [id, a] of Object.entries(ET.rec(e.id).ing)) use[id] = (use[id] || 0) + a * e.f; });
+    const shakesLeft = Math.max(0, SHAKE.days - (S.plan ? S.plan.shake.filter(Boolean).length : 0));
+    for (const [id, a] of Object.entries(SHAKE.ing)) use[id] = (use[id] || 0) + a * shakesLeft;
+    return use;
+  }
+  // Reste: Wert der neu gekauften Menge, die am Ende der Woche übrig bleibt. Frisches zählt voll, Trockenware kaum.
+  const keepW = shelf => (shelf <= 14 ? 1.5 : shelf <= 21 ? 1 : shelf <= 60 ? 0.6 : shelf <= 180 ? 0.3 : 0.1);
+  function metrics(picks) {
+    const list = shoppingFor(picks), use = usageOf(picks), left = {}; let waste = 0;
+    list.forEach(x => {
+      const c = item(x.id), rest = pantryAmt(x.id) + x.amount - (use[x.id] || 0) - (S.minStock[x.id] || 0);
+      if (rest > c.pack * 0.02) { left[x.id] = rest; waste += rest / c.pack * price(x.id) * keepW(c.shelf); }
+    });
+    return { list, cost: listCost(list), waste, left };
+  }
+  // Reste des aktuellen Plans: { value, items: [{ id, name, left, value }] } nach Wert absteigend
+  ET.planWaste = function () {
+    const m = metrics(entries());
+    const items = Object.entries(m.left).map(([id, rest]) => ({ id, name: item(id).name, left: rest, value: rest / item(id).pack * price(id) * keepW(item(id).shelf) })).filter(x => x.value >= 0.2).sort((a, b) => b.value - a.value);
+    return { value: m.waste, items };
+  };
   ET.suggestions = function (opts = {}) {
-    const picks = entries(), base = listCost(shoppingFor(picks)), q = normS(opts.q || '');
+    const picks = entries(), baseM = metrics(picks), base = baseM.cost, q = normS(opts.q || '');
+    // Vorrat, der diese Woche abläuft und vom Plan noch nicht verbraucht wird
+    const useNow = usageOf(picks), weekEnd = iso(addDays(ET.planMonday(), 6)), soonLeft = {};
+    for (const [id, q2] of Object.entries(S.pantry)) if (q2.amount > 0 && q2.exp && q2.exp <= weekEnd) { const l = q2.amount - (useNow[id] || 0); if (l > 0) soonLeft[id] = l; }
     const left = ET.budgetLeft();
     const wantSnack = opts.type === 'snack';
     let out = ET.allRecipes().filter(r => (r.type === 'snack') === wantSnack && !picks.some(e => e.id === r.id)).map(r => {
-      const marginal = listCost(shoppingFor([...picks, { id: r.id, f: 1 }])) - base, n = portionN(r), ids = Object.keys(r.ing), fl = recipeFlags(r), per = marginal / serv(r);
-      return { r, marginal, per, n, fl, offer: ids.filter(isOffer).length, stock: ids.filter(id => pantryAmt(id) > 0).length, score: marginal - Math.min(n[1], 40) * 0.08 + (fl.warn ? 100 : 0) };
+      const m2 = metrics([...picks, { id: r.id, f: 1 }]), marginal = m2.cost - base, wasteD = m2.waste - baseM.waste, n = portionN(r), ids = Object.keys(r.ing), fl = recipeFlags(r), per = marginal / serv(r);
+      const leftNames = ids.filter(id => m2.left[id] && m2.left[id] / item(id).pack >= 0.3 && keepW(item(id).shelf) >= 0.6).map(id => item(id).name.replace(/ \d.*$| \(.*$/, ''));
+      let expUse = 0; const expNames = [];
+      for (const [id, a] of Object.entries(r.ing)) if (soonLeft[id]) { expUse += Math.min(a, soonLeft[id]) / item(id).pack * price(id) * 2.5 * keepW(item(id).shelf); expNames.push(item(id).name.replace(/ \d.*$| \(.*$/, '')); }
+      return { r, marginal, wasteD, waste: m2.waste, leftNames, expUse, expNames, per, n, fl, offer: ids.filter(isOffer).length, stock: ids.filter(id => pantryAmt(id) > 0).length, score: marginal + wasteD - expUse - Math.min(n[1], 40) * 0.08 + (fl.warn ? 100 : 0) + (r.group === 'suess' && !wantSnack ? 1.5 : 0) };
     }).filter(x => !x.fl.blocked);
     if (S.settings.maxMin && !wantSnack && opts.respectTime !== false) out = out.filter(x => x.r.min <= S.settings.maxMin || opts.showAll);
     if (q) out = out.filter(x => normS(x.r.name).includes(q) || Object.keys(x.r.ing).some(id => normS(item(id).name).includes(q)));
+    const rs = x => x.reuse - x.marginal * 0.5 - x.wasteD * 0.5;
+    if (opts.reuse) {
+      // Reste: Vorrat, Einkauf und Wagen, die nach dem Plan übrig bleiben. Bald ablaufendes zählt doppelt.
+      const L = {}; ET.afterWeek({ cartOnly: opts.cartOnly }).forEach(x => { if (x.left > 0) L[x.id] = x; });
+      out.forEach(x => {
+        x.reuse = 0; x.reuseNames = [];
+        for (const [id, a] of Object.entries(x.r.ing)) {
+          const l = L[id]; if (!l) continue;
+          const used = Math.min(a, l.left); x.reuse += used / l.c.pack * price(id) * (l.soon ? 2 : 1);
+          if (used / l.left >= 0.3 || l.soon) x.reuseNames.push(l.c.name.replace(/ \d.*$| \(.*$/, ''));
+        }
+      });
+      out = out.filter(x => x.reuse > 0.05);
+    }
     const ings = (opts.ings || []).map(t => ET.ingIds(t));
     if (ings.length) {
       out.forEach(x => { x.hits = ings.filter(ids => ids.some(id => id in x.r.ing)).length; });
       const all = out.filter(x => x.hits === ings.length);
       // Wenige Treffer mit allen Zutaten: Gerichte mit nur einer der Zutaten folgen danach
       out = all.length >= 5 || ings.length < 2 ? all : out.filter(x => x.hits > 0);
-      out.sort((a, b) => b.hits - a.hits || a.score - b.score);
+      out.sort((a, b) => b.hits - a.hits || (opts.reuse ? rs(b) - rs(a) : a.score - b.score));
       out.fullCount = out.filter(x => x.hits === ings.length).length;
       return out;
     }
@@ -237,7 +296,7 @@
     if (opts.protein) out = out.filter(x => x.n[1] >= (wantSnack ? 15 : 30));
     if (opts.cheap) out = out.filter(x => x.offer > 0 || x.per <= 1.2);
     if (opts.budget && left != null) out = out.filter(x => x.marginal <= Math.max(0, left));
-    return out.sort((a, b) => a.score - b.score);
+    return out.sort((a, b) => (opts.reuse ? rs(b) - rs(a) : a.score - b.score));
   };
   ET.autoPick = function () {
     const ids = [], groups = {};
