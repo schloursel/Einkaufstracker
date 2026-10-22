@@ -10,7 +10,14 @@ Statische Web-App ohne Backend und ohne Build: Wochenplan, Einkaufsliste und Vor
 - `offers.js`, `products.js`, `nutrition.js`: Daten, automatisch erzeugt (siehe unten)
 - `manifest.webmanifest`, `sw.js`, `icons/`: Installation als App und Offline-Betrieb
 
-Untere Leiste: Home · Plan · Einkauf · Vorrat · Mehr. Mehr enthält Angebote, Alle Produkte, Gerichte & eigene Rezepte, Preise & Katalog, Tracker, Einstellungen, Backup, Info. Beim Gericht wählen tippst du ein, zwei Zutaten an und bekommst passende Vorschläge.
+Untere Leiste: Home · Plan · Einkauf · Vorrat · Mehr. Mehr enthält Angebote, Alle Produkte, Gerichte & eigene Rezepte, Preise & Katalog, Tracker, Einstellungen, Backup, Info.
+
+Home zeigt den nächsten Schritt der Woche und die Mahlzeiten von heute zum Abhaken. Der Vorrat zeigt oben, was zuerst verbraucht werden sollte.
+
+## Gerichte wählen und Reste
+- Beim Gericht wählen tippst du ein, zwei Zutaten an und bekommst passende Vorschläge (Begriffe wie Käse, Pilze, Bohnen schließen mehrere Artikel ein).
+- Die Vorschläge sind nach Zusatzkosten, Eiweiß und Resten sortiert. Reste sind angebrochene Packungen am Ende der Woche: Frisches zählt voll, Trockenware kaum. Gerichte, die bald Ablaufendes verbrauchen, stehen weiter oben.
+- „Nach der Woche“ (Vorrat und Einkauf) zeigt, was leer geht, was bleibt und was vorher abläuft. „Reste verbrauchen“ und „Gerichte für die Reste vorschlagen“ ordnen die Gerichte nach dem, was schon da oder im Wagen ist.
 
 ## Auf GitHub veröffentlichen
 1. Neues Repository anlegen und diesen Ordner hochladen (ohne `.claude`).
